@@ -1,7 +1,5 @@
 # Morizo - 開発環境
 
-この環境は、morizo-web Next.js 15 web アプリ開発環境です。
-
 3つのリポジトリに対応したDocker開発環境
 
 ## リポジトリ構成
@@ -14,56 +12,15 @@
 
 - **morizo-web** - Next.js 15環境（ポート3000）
 - **morizo-mobile** - Expo環境（ポート8081, 19000-19001, 19006）
-- **morizo-postgres** - PostgreSQL（ポート5432）
-- **morizo-redis** - Redis（ポート6379）
-- **morizo-supabase** - Supabase（ポート5433）
+
+## クラウドサービス
+
+- **Vercel Postgres** - データベース（クラウド）
+- **Supabase** - 認証・リアルタイム機能（クラウド）
 
 ## セットアップ
 
-### 1. 環境変数の設定
-
-```bash
-# 環境変数テンプレートをコピー
-cp .env.example .env
-```
-
-**`.env`ファイルの編集：**
-
-最低限、以下の設定が必要です：
-
-```env
-# Supabase設定
-NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
-
-# データベース設定
-DATABASE_URL=postgresql://postgres:password@localhost:5432/morizo
-REDIS_URL=redis://localhost:6379
-
-# 開発設定
-NODE_ENV=development
-JWT_SECRET=your-jwt-secret-key-here # ここでJWT_SECRETは設定不要です。メモとして記述してあります。
-```
-
-**JWT_SECRETの生成方法：**
-
-```bash
-# 方法1: OpenSSLを使用（推奨）
-openssl rand -base64 64
-
-# 方法2: Node.jsを使用
-node -e "console.log(require('crypto').randomBytes(64).toString('base64'))"
-
-# 方法3: オンラインツール
-# https://generate-secret.vercel.app/32
-```
-
-**注意：**
-- JWT_SECRETは64文字以上のランダムな文字列を使用
-- 本番環境では、より強力な秘密鍵を生成してください
-- 生成された文字列をそのまま`.env`ファイルに貼り付けてください
-
-### 2. 開発環境の起動
+### 1. 開発環境の起動
 
 ```bash
 # Docker Composeで開発環境を起動
@@ -71,7 +28,7 @@ cd docker
 docker-compose up -d
 ```
 
-### 3. アプリケーションの作成
+### 2. アプリケーションの作成
 
 #### Webアプリ（morizo-web）
 
@@ -115,9 +72,8 @@ npx expo start --web
 
 - **Webアプリ**: http://localhost:3000
 - **Expo DevTools**: http://localhost:19000
-- **PostgreSQL**: localhost:5432
-- **Redis**: localhost:6379
-- **Supabase**: localhost:5433
+- **Vercel Postgres**: クラウド（接続情報は環境変数で設定）
+- **Supabase**: クラウド（接続情報は環境変数で設定）
 
 ## 開発コマンド
 
@@ -141,4 +97,5 @@ docker-compose logs -f morizo-mobile
 - WebアプリはVercelにデプロイ可能
 - モバイルアプリはWebアプリのAPIを呼び出す
 - 各アプリは独立したコンテナで動作
-- データベースは共有される
+- データベースと認証はクラウドサービスを使用
+- 開発環境は軽量化され、必要なサービスのみ起動
