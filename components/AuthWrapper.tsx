@@ -1,7 +1,9 @@
 'use client'
 
+import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import AuthForm from './AuthForm'
+import SplashScreen from './SplashScreen'
 
 interface AuthWrapperProps {
   children: React.ReactNode
@@ -9,6 +11,12 @@ interface AuthWrapperProps {
 
 export default function AuthWrapper({ children }: AuthWrapperProps) {
   const { user, loading } = useAuth()
+  const [showSplash, setShowSplash] = useState(true)
+
+  // スプラッシュ画面を表示中
+  if (showSplash) {
+    return <SplashScreen onComplete={() => setShowSplash(false)} />
+  }
 
   if (loading) {
     return (
