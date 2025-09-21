@@ -1,101 +1,141 @@
-# Morizo - 開発環境
+# Morizo Web - Next.js アプリケーション
 
-3つのリポジトリに対応したDocker開発環境
+Smart Pantry MVPのWebアプリケーション（チャットUI + 音声入力）
 
-## リポジトリ構成
+## プロジェクト構成
 
-- **morizo** - この開発環境構築用リポジトリ
-- **morizo-web** - Next.js 15 Webアプリ（Vercelデプロイ用）
-- **morizo-mobile** - Expo モバイルアプリ（API呼び出し用）
+- **Morizo-web** - Next.js 15 Webアプリ（このリポジトリ）
+- **Morizo-ai** - Python AIエージェント（別リポジトリ）
+- **Morizo-mobile** - Expo モバイルアプリ（別リポジトリ）
 
 ## サービス構成
 
 - **morizo-web** - Next.js 15環境（ポート3000）
 - **morizo-mobile** - Expo環境（ポート8081, 19000-19001, 19006）
+- **morizo-ai** - Python AI環境（ポート8000）
 
 ## クラウドサービス
 
-- **Vercel Postgres** - データベース（クラウド）
-- **Supabase** - 認証・リアルタイム機能（クラウド）
+- **AWS EC2** - メインサーバー（Next.js + Python AI）
+- **Supabase** - 認証・データベース・リアルタイム機能（クラウド）
+- **OpenAI API** - LLM・音声認識（GPT-4, Whisper）
 
 ## セットアップ
 
-### 1. 開発環境の起動
+### 1. 依存関係のインストール
 
 ```bash
-# Docker Composeで開発環境を起動
-cd docker
-docker-compose up -d
-```
-
-### 2. アプリケーションの作成
-
-#### Webアプリ（morizo-web）
-
-```bash
-# Webコンテナに接続
-docker-compose exec morizo-web bash
-
-# /app フォルダで Next.js 15アプリを作成
-cd /app
-npx create-next-app@latest . --typescript --tailwind --eslint --app
-
 # 依存関係をインストール
 npm install
+```
 
-# 開発サーバーを起動
+### 2. 環境変数の設定
+
+```bash
+# 環境変数ファイルの作成
+cp .env.example .env.local
+
+# 必要な環境変数を設定
+# NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+# NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+# OPENAI_API_KEY=your-openai-api-key
+```
+
+### 3. 開発サーバーの起動
+
+```bash
+# Next.js 開発サーバーを起動
 npm run dev
 ```
 
-#### モバイルアプリ（morizo-mobile）
+## 機能
 
-```bash
-# モバイルコンテナに接続
-docker-compose exec morizo-mobile bash
+### 認証機能
+- Supabase認証（メール/パスワード、Google認証）
+- 認証状態の管理
+- 認証付きAPI呼び出し
 
-# /app フォルダで Expoアプリを作成
-cd /app
-npx create-expo-app@latest . --template blank-typescript
+### 音声入力
+- Web Speech API による音声認識
+- 自然言語での食材管理コマンド
+- 音声データのPython AIエージェントへの送信
 
-# 依存関係をインストール
-npm install
+### チャットUI
+- リアルタイムチャットインターフェース
+- AIエージェントとの対話
+- レシピ提案の表示
 
-# 開発サーバーを起動
-# Expo Goで実機確認する場合（Android/iOS端末）
-npx expo start --tunnel
-
-# Webブラウザで簡易確認する場合
-npx expo start --web
-```
+### API連携
+- Python AIエージェント（localhost:8000）との通信
+- Supabase（認証・データベース）との連携
+- OpenAI API（音声認識・LLM）の活用
 
 ## アクセス先
 
 - **Webアプリ**: http://localhost:3000
+- **AI API**: http://localhost:8000
 - **Expo DevTools**: http://localhost:19000
-- **Vercel Postgres**: クラウド（接続情報は環境変数で設定）
-- **Supabase**: クラウド（接続情報は環境変数で設定）
+- **Supabase**: クラウド（認証・DB・リアルタイム）
+- **OpenAI API**: クラウド（LLM・音声認識）
 
 ## 開発コマンド
 
 ```bash
-# 開発環境の起動
-docker-compose up -d
+# 開発サーバーの起動
+npm run dev
 
-# 開発環境の停止
-docker-compose down
+# ビルド
+npm run build
 
-# ログの確認
-docker-compose logs -f
+# 本番サーバーの起動
+npm run start
 
-# 特定のサービスのログ
-docker-compose logs -f morizo-web
-docker-compose logs -f morizo-mobile
+# リンター
+npm run lint
+
+# TypeScript型チェック
+npm run type-check
 ```
 
-## 注意事項
+## プロジェクト全体の起動
 
-- WebアプリはVercelにデプロイ可能
-- モバイルアプリはWebアプリのAPIを呼び出す
-- 各アプリは独立したコンテナで動作
-- データベースと認証はクラウドサービスを使用
-- 開発環境は軽量化され、必要なサービスのみ起動
+```bash
+# ターミナル1: Next.js Webアプリ（このリポジトリ）
+npm run dev
+
+# ターミナル2: Python AIエージェント（別リポジトリ）
+cd ../Morizo-ai
+source venv/bin/activate
+uvicorn main:app --reload --port 8000
+```
+
+## 技術スタック
+
+- **フレームワーク**: Next.js 15 (App Router)
+- **言語**: TypeScript
+- **スタイリング**: Tailwind CSS
+- **認証**: Supabase Auth
+- **データベース**: Supabase PostgreSQL
+- **音声認識**: Web Speech API
+- **AI連携**: Python FastAPI (別リポジトリ)
+
+## アーキテクチャ
+
+```
+Next.js (このリポジトリ)
+├── チャットUI
+├── 音声入力
+├── 認証管理
+└── API Routes
+    ↓ HTTP API (localhost:8000)
+Python AI (Morizo-ai リポジトリ)
+    ↓
+Supabase (認証 + データベース)
+    ↓
+OpenAI API (GPT-4 + Whisper)
+```
+
+## 関連リポジトリ
+
+- **[Morizo-ai](../Morizo-ai)**: Python AIエージェント
+- **[Morizo-mobile](../Morizo-mobile)**: Expo モバイルアプリ
