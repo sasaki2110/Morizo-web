@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { authenticateRequest, authenticatedMorizoAIRequest } from '@/lib/auth-server';
 
 const MORIZO_AI_URL = 'http://localhost:8000';
 
@@ -13,8 +14,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Morizo AIに送信
-    const response = await fetch(`${MORIZO_AI_URL}/chat`, {
+    // 認証チェック
+    const authResult = await authenticateRequest(request);
+    
+    // 認証失敗の場合はNextResponseを返す
+    if (authResult instanceof NextResponse) {
+      return authResult;
+    }
+    
+    const { token } = authResult;
+
+    // Morizo AIに送信（認証トークン付き）
+    const response = await authenticatedMorizoAIRequest(`${MORIZO_AI_URL}/chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -22,7 +33,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         message: message,
       }),
-    });
+    }, token);
 
     if (!response.ok) {
       throw new Error(`Morizo AI エラー: ${response.status}`);

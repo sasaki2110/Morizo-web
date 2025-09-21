@@ -6,12 +6,17 @@ import UserProfile from '@/components/UserProfile';
 import VoiceRecorder from '@/components/VoiceRecorder';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { getCurrentAuthToken, authenticatedFetch } from '@/lib/auth';
 
 export default function Home() {
   const [apiResponse, setApiResponse] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [chatMessages, setChatMessages] = useState<Array<{type: 'user' | 'ai', content: string}>>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
+  const [authToken, setAuthToken] = useState<string>('');
+  const [isTokenLoading, setIsTokenLoading] = useState(false);
+  const [textMessage, setTextMessage] = useState<string>('');
+  const [isTextChatLoading, setIsTextChatLoading] = useState(false);
   const { session } = useAuth();
 
   const testApi = async () => {
@@ -19,18 +24,8 @@ export default function Home() {
     setApiResponse('');
     
     try {
-      // 認証トークンを取得
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      
-      if (!currentSession?.access_token) {
-        setApiResponse('認証トークンが取得できません');
-        return;
-      }
-
-      // Authorizationヘッダーにトークンを含めてAPIを呼び出し
-      const response = await fetch('/api/test', {
+      const response = await authenticatedFetch('/api/test', {
         headers: {
-          'Authorization': `Bearer ${currentSession.access_token}`,
           'Content-Type': 'application/json',
         },
       });
@@ -51,7 +46,7 @@ export default function Home() {
     setChatMessages(prev => [...prev, { type: 'user', content: text }]);
     
     try {
-      const response = await fetch('/api/chat', {
+      const response = await authenticatedFetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -84,12 +79,119 @@ export default function Home() {
     }]);
   };
 
+  const getAuthToken = async () => {
+    setIsTokenLoading(true);
+    setAuthToken('');
+    
+    try {
+      const token = await getCurrentAuthToken();
+      
+      if (!token) {
+        setAuthToken('認証トークンが取得できません');
+        return;
+      }
+
+      setAuthToken(token);
+    } catch (error) {
+      setAuthToken(`エラー: ${error}`);
+    } finally {
+      setIsTokenLoading(false);
+    }
+  };
+
+  const copyTokenToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(authToken);
+      alert('トークンをクリップボードにコピーしました！');
+    } catch (error) {
+      console.error('コピーに失敗しました:', error);
+    }
+  };
+
+  const sendTextMessage = async () => {
+    if (!textMessage.trim()) return;
+
+    setIsTextChatLoading(true);
+    
+    // ユーザーメッセージを追加
+    setChatMessages(prev => [...prev, { type: 'user', content: textMessage }]);
+    const currentMessage = textMessage;
+    setTextMessage(''); // 入力フィールドをクリア
+    
+    try {
+      const response = await authenticatedFetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: currentMessage }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`チャットAPI エラー: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      // AIレスポンスを追加
+      setChatMessages(prev => [...prev, { type: 'ai', content: data.response }]);
+    } catch (error) {
+      setChatMessages(prev => [...prev, { 
+        type: 'ai', 
+        content: `エラー: ${error instanceof Error ? error.message : '不明なエラー'}` 
+      }]);
+    } finally {
+      setIsTextChatLoading(false);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendTextMessage();
+    }
+  };
+
   return (
     <AuthWrapper>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
         <div className="max-w-2xl w-full">
           <UserProfile />
           
+          {/* テキストチャットセクション */}
+          <div className="mt-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8">
+            <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-6 text-center">
+              Morizo AI テキストチャット
+            </h2>
+            
+            <div className="space-y-4">
+              <div className="flex space-x-2">
+                <input
+                  type="text"
+                  value={textMessage}
+                  onChange={(e) => setTextMessage(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="メッセージを入力してください..."
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  disabled={isTextChatLoading}
+                />
+                <button
+                  onClick={sendTextMessage}
+                  disabled={isTextChatLoading || !textMessage.trim()}
+                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold rounded-lg transition-colors duration-200"
+                >
+                  {isTextChatLoading ? '送信中...' : '送信'}
+                </button>
+              </div>
+              
+              {isTextChatLoading && (
+                <div className="text-sm text-gray-600 dark:text-gray-400 text-center">
+                  Morizo AIが応答を生成中...
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* 音声入力セクション */}
           <div className="mt-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 text-center">
             <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-6">
@@ -136,6 +238,45 @@ export default function Home() {
             </div>
           )}
           
+          {/* 認証トークン表示セクション */}
+          <div className="mt-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 text-center">
+            <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-6">
+              認証トークン
+            </h2>
+            
+            <button
+              onClick={getAuthToken}
+              disabled={isTokenLoading}
+              className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 mb-4"
+            >
+              {isTokenLoading ? 'トークン取得中...' : '認証トークンを取得'}
+            </button>
+            
+            {authToken && (
+              <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-4 text-left">
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    アクセストークン:
+                  </h3>
+                  <button
+                    onClick={copyTokenToClipboard}
+                    className="text-xs bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded transition-colors duration-200"
+                  >
+                    コピー
+                  </button>
+                </div>
+                <div className="bg-white dark:bg-gray-800 rounded p-3 border">
+                  <pre className="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap break-all overflow-auto max-h-32">
+                    {authToken}
+                  </pre>
+                </div>
+                <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  curl テスト用: <code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">Authorization: Bearer {authToken.substring(0, 20)}...</code>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* API テストセクション（既存） */}
           <div className="mt-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 text-center">
             <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-6">

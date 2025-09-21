@@ -1,39 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase-server';
+import { authenticateRequest } from '@/lib/auth-server';
 
 export async function GET(request: NextRequest) {
   try {
-    // Authorizationヘッダーからトークンを取得
-    const authHeader = request.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '');
+    // 認証チェック
+    const authResult = await authenticateRequest(request);
     
-    if (!token) {
-      return NextResponse.json(
-        { 
-          message: '認証トークンが提供されていません',
-          error: 'No token provided',
-          status: 'error'
-        },
-        { status: 401 }
-      );
+    // 認証失敗の場合はNextResponseを返す
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
-
-    // サーバーサイドでSupabaseクライアントを作成
-    const supabase = await createClient();
     
-    // トークンを使用してユーザー情報を取得
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { 
-          message: '認証が必要です',
-          error: 'Unauthorized',
-          status: 'error'
-        },
-        { status: 401 }
-      );
-    }
+    const { user } = authResult;
 
     // 認証成功時のレスポンス
     const response = NextResponse.json({
@@ -67,37 +45,15 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // Authorizationヘッダーからトークンを取得
-    const authHeader = request.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '');
+    // 認証チェック
+    const authResult = await authenticateRequest(request);
     
-    if (!token) {
-      return NextResponse.json(
-        { 
-          message: '認証トークンが提供されていません',
-          error: 'No token provided',
-          status: 'error'
-        },
-        { status: 401 }
-      );
+    // 認証失敗の場合はNextResponseを返す
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
-
-    // サーバーサイドでSupabaseクライアントを作成
-    const supabase = await createClient();
     
-    // トークンを使用してユーザー情報を取得
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { 
-          message: '認証が必要です',
-          error: 'Unauthorized',
-          status: 'error'
-        },
-        { status: 401 }
-      );
-    }
+    const { user } = authResult;
 
     // リクエストボディを取得
     const body = await request.json().catch(() => ({}));
