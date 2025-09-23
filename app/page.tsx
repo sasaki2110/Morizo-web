@@ -17,6 +17,7 @@ export default function Home() {
   const [isTokenLoading, setIsTokenLoading] = useState(false);
   const [textMessage, setTextMessage] = useState<string>('');
   const [isTextChatLoading, setIsTextChatLoading] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
   const { session } = useAuth();
 
   const testApi = async () => {
@@ -102,7 +103,11 @@ export default function Home() {
   const copyTokenToClipboard = async () => {
     try {
       await navigator.clipboard.writeText(authToken);
-      alert('トークンをクリップボードにコピーしました！');
+      setIsCopied(true);
+      // 2秒後に元の状態に戻す
+      setTimeout(() => {
+        setIsCopied(false);
+      }, 2000);
     } catch (error) {
       console.error('コピーに失敗しました:', error);
     }
@@ -158,6 +163,34 @@ export default function Home() {
         <div className="max-w-2xl w-full">
           <UserProfile />
           
+          {/* チャット履歴 */}
+          {chatMessages.length > 0 && (
+            <div className="mt-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+              <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4">
+                チャット履歴
+              </h3>
+              <div className="space-y-4 max-h-96 overflow-y-auto">
+                {chatMessages.map((message, index) => (
+                  <div
+                    key={index}
+                    className={`p-3 rounded-lg ${
+                      message.type === 'user'
+                        ? 'bg-blue-100 dark:bg-blue-900 ml-8'
+                        : 'bg-gray-100 dark:bg-gray-700 mr-8'
+                    }`}
+                  >
+                    <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                      {message.type === 'user' ? 'あなた' : 'Morizo AI'}
+                    </div>
+                    <div className="text-sm text-gray-800 dark:text-white">
+                      {message.content}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* テキストチャットセクション */}
           <div className="mt-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8">
             <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-6 text-center">
@@ -210,33 +243,6 @@ export default function Home() {
             )}
           </div>
 
-          {/* チャット履歴 */}
-          {chatMessages.length > 0 && (
-            <div className="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-              <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4">
-                チャット履歴
-              </h3>
-              <div className="space-y-4 max-h-96 overflow-y-auto">
-                {chatMessages.map((message, index) => (
-                  <div
-                    key={index}
-                    className={`p-3 rounded-lg ${
-                      message.type === 'user'
-                        ? 'bg-blue-100 dark:bg-blue-900 ml-8'
-                        : 'bg-gray-100 dark:bg-gray-700 mr-8'
-                    }`}
-                  >
-                    <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                      {message.type === 'user' ? 'あなた' : 'Morizo AI'}
-                    </div>
-                    <div className="text-sm text-gray-800 dark:text-white">
-                      {message.content}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
           
           {/* 認証トークン表示セクション */}
           <div className="mt-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 text-center">
@@ -260,9 +266,13 @@ export default function Home() {
                   </h3>
                   <button
                     onClick={copyTokenToClipboard}
-                    className="text-xs bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded transition-colors duration-200"
+                    className={`text-xs px-2 py-1 rounded transition-colors duration-200 ${
+                      isCopied 
+                        ? 'bg-green-500 text-white' 
+                        : 'bg-blue-500 hover:bg-blue-600 text-white'
+                    }`}
                   >
-                    コピー
+                    {isCopied ? 'Copied' : 'コピー'}
                   </button>
                 </div>
                 <div className="bg-white dark:bg-gray-800 rounded p-3 border">

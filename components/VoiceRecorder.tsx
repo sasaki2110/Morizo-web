@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { WebAudioRecorder, isAudioRecordingSupported } from '@/lib/audio';
+import { clientLog, ClientLogCategory, logClientVoice } from '@/lib/client-logging';
 
 interface VoiceRecorderProps {
   onTranscriptionComplete: (text: string) => void;
@@ -14,32 +15,63 @@ export default function VoiceRecorder({ onTranscriptionComplete, onError }: Voic
   const recorderRef = useRef<WebAudioRecorder | null>(null);
 
   const startRecording = async () => {
+    clientLog.info(ClientLogCategory.VOICE, '音声録音開始処理');
+    
     if (!isAudioRecordingSupported()) {
-      onError('お使いのブラウザは音声録音をサポートしていません');
+      const errorMsg = 'お使いのブラウザは音声録音をサポートしていません';
+      clientLog.error(ClientLogCategory.VOICE, errorMsg);
+      logClientVoice('start_recording', undefined, errorMsg);
+      onError(errorMsg);
       return;
     }
 
     try {
+      clientLog.debug(ClientLogCategory.VOICE, 'WebAudioRecorder初期化');
       recorderRef.current = new WebAudioRecorder();
+      
+      clientLog.debug(ClientLogCategory.VOICE, '録音開始');
       await recorderRef.current.startRecording();
       setIsRecording(true);
+      
+      clientLog.info(ClientLogCategory.VOICE, '音声録音開始成功');
+      logClientVoice('start_recording');
     } catch (error) {
-      onError(error instanceof Error ? error.message : '録音の開始に失敗しました');
+      const errorMsg = error instanceof Error ? error.message : '録音の開始に失敗しました';
+      clientLog.error(ClientLogCategory.VOICE, errorMsg, { error });
+      logClientVoice('start_recording', undefined, errorMsg);
+      onError(errorMsg);
     }
   };
 
   const stopRecording = async () => {
-    if (!recorderRef.current) return;
+    if (!recorderRef.current) {
+      clientLog.warn(ClientLogCategory.VOICE, '録音停止: recorderRefがnullです');
+      return;
+    }
 
     try {
+      clientLog.info(ClientLogCategory.VOICE, '音声録音停止処理開始');
       setIsProcessing(true);
+      
+      const timer = clientLog.timer('stop-recording');
       const audioBlob = await recorderRef.current.stopRecording();
+      timer();
+      
       setIsRecording(false);
+      
+      clientLog.info(ClientLogCategory.VOICE, '音声録音停止成功', { 
+        blobSize: audioBlob.size,
+        blobType: audioBlob.type 
+      });
+      logClientVoice('stop_recording');
 
       // Whisper APIに送信
       await sendToWhisper(audioBlob);
     } catch (error) {
-      onError(error instanceof Error ? error.message : '録音の停止に失敗しました');
+      const errorMsg = error instanceof Error ? error.message : '録音の停止に失敗しました';
+      clientLog.error(ClientLogCategory.VOICE, errorMsg, { error });
+      logClientVoice('stop_recording', undefined, errorMsg);
+      onError(errorMsg);
     } finally {
       setIsProcessing(false);
     }
@@ -47,22 +79,40 @@ export default function VoiceRecorder({ onTranscriptionComplete, onError }: Voic
 
   const sendToWhisper = async (audioBlob: Blob) => {
     try {
+      clientLog.info(ClientLogCategory.VOICE, 'Whisper API送信開始', { 
+        blobSize: audioBlob.size,
+        blobType: audioBlob.type 
+      });
+      
       const formData = new FormData();
       formData.append('audio', audioBlob, 'audio.webm');
 
+      const timer = clientLog.timer('whisper-api-call');
       const response = await fetch('/api/whisper', {
         method: 'POST',
         body: formData,
       });
+      timer();
 
       if (!response.ok) {
-        throw new Error(`Whisper API エラー: ${response.status}`);
+        const errorMsg = `Whisper API エラー: ${response.status}`;
+        clientLog.error(ClientLogCategory.VOICE, errorMsg, { status: response.status });
+        logClientVoice('transcription_error', undefined, errorMsg);
+        throw new Error(errorMsg);
       }
 
       const data = await response.json();
+      clientLog.info(ClientLogCategory.VOICE, 'Whisper API応答受信完了', { 
+        transcriptionLength: data.text?.length 
+      });
+      logClientVoice('transcription_success');
+      
       onTranscriptionComplete(data.text);
     } catch (error) {
-      onError(error instanceof Error ? error.message : '音声認識に失敗しました');
+      const errorMsg = error instanceof Error ? error.message : '音声認識に失敗しました';
+      clientLog.error(ClientLogCategory.VOICE, errorMsg, { error });
+      logClientVoice('transcription_error', undefined, errorMsg);
+      onError(errorMsg);
     }
   };
 
