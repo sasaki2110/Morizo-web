@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth-server';
 import { ServerLogger, LogCategory } from '@/lib/logging-utils';
 
+// CORSヘッダーを設定するヘルパー関数
+function setCorsHeaders(response: NextResponse) {
+  response.headers.set('Access-Control-Allow-Origin', '*');
+  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  response.headers.set('Access-Control-Max-Age', '86400');
+  return response;
+}
+
 // サーバーサイドログの初期化
 try {
   ServerLogger.info(LogCategory.API, '🚀 API test route 初期化完了');
@@ -19,7 +28,7 @@ export async function GET(request: NextRequest) {
     // 認証失敗の場合はNextResponseを返す
     if (authResult instanceof NextResponse) {
       ServerLogger.warn(LogCategory.API, 'API test GET 認証失敗');
-      return authResult;
+      return setCorsHeaders(authResult);
     }
     
     const { user } = authResult;
@@ -37,17 +46,12 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // CORSヘッダーを追加
-    response.headers.set('Access-Control-Allow-Origin', '*');
-    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
     ServerLogger.info(LogCategory.API, 'API test GET レスポンス送信完了');
-    return response;
+    return setCorsHeaders(response);
   } catch (error) {
     ServerLogger.error(LogCategory.API, 'API test GET エラー', { error: error instanceof Error ? error.message : 'Unknown error' });
     
-    return NextResponse.json(
+    const response = NextResponse.json(
       { 
         message: 'サーバーエラーが発生しました',
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -55,6 +59,7 @@ export async function GET(request: NextRequest) {
       },
       { status: 500 }
     );
+    return setCorsHeaders(response);
   }
 }
 
@@ -65,7 +70,7 @@ export async function POST(request: NextRequest) {
     
     // 認証失敗の場合はNextResponseを返す
     if (authResult instanceof NextResponse) {
-      return authResult;
+      return setCorsHeaders(authResult);
     }
     
     const { user } = authResult;
@@ -86,14 +91,9 @@ export async function POST(request: NextRequest) {
       receivedData: body
     });
 
-    // CORSヘッダーを追加
-    response.headers.set('Access-Control-Allow-Origin', '*');
-    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-    return response;
+    return setCorsHeaders(response);
   } catch (error) {
-    return NextResponse.json(
+    const response = NextResponse.json(
       { 
         message: 'サーバーエラーが発生しました',
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -101,16 +101,11 @@ export async function POST(request: NextRequest) {
       },
       { status: 500 }
     );
+    return setCorsHeaders(response);
   }
 }
 
 export async function OPTIONS() {
   const response = new NextResponse(null, { status: 200 });
-  
-  // CORSプリフライトリクエスト用のヘッダー
-  response.headers.set('Access-Control-Allow-Origin', '*');
-  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  
-  return response;
+  return setCorsHeaders(response);
 }

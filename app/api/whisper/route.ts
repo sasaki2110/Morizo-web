@@ -6,6 +6,21 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// CORSヘッダーを設定するヘルパー関数
+function setCorsHeaders(response: NextResponse) {
+  response.headers.set('Access-Control-Allow-Origin', '*');
+  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  response.headers.set('Access-Control-Max-Age', '86400');
+  return response;
+}
+
+// OPTIONSリクエストのハンドラー（CORS preflight）
+export async function OPTIONS() {
+  const response = new NextResponse(null, { status: 200 });
+  return setCorsHeaders(response);
+}
+
 export async function POST(request: NextRequest) {
   const timer = ServerLogger.startTimer('whisper-api');
   
@@ -22,10 +37,11 @@ export async function POST(request: NextRequest) {
 
     if (!audioFile) {
       ServerLogger.warn(LogCategory.VOICE, '音声ファイルが見つかりません');
-      return NextResponse.json(
+      const response = NextResponse.json(
         { error: '音声ファイルが見つかりません' },
         { status: 400 }
       );
+      return setCorsHeaders(response);
     }
 
     // Whisper APIに送信
@@ -47,10 +63,11 @@ export async function POST(request: NextRequest) {
     timer();
     logApiCall('POST', '/api/whisper', 200, undefined);
     
-    return NextResponse.json({
+    const response = NextResponse.json({
       text: transcription,
       success: true,
     });
+    return setCorsHeaders(response);
 
   } catch (error) {
     timer();
@@ -58,12 +75,13 @@ export async function POST(request: NextRequest) {
     logVoice('transcription_error', undefined, error instanceof Error ? error.message : '不明なエラー');
     logApiCall('POST', '/api/whisper', 500, undefined, error instanceof Error ? error.message : '不明なエラー');
     
-    return NextResponse.json(
+    const response = NextResponse.json(
       { 
         error: '音声認識に失敗しました',
         details: error instanceof Error ? error.message : '不明なエラー'
       },
       { status: 500 }
     );
+    return setCorsHeaders(response);
   }
 }

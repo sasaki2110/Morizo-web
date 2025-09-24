@@ -4,6 +4,21 @@ import { ServerLogger, LogCategory, logApiCall, logError } from '@/lib/logging-u
 
 const MORIZO_AI_URL = 'http://localhost:8000';
 
+// CORSヘッダーを設定するヘルパー関数
+function setCorsHeaders(response: NextResponse) {
+  response.headers.set('Access-Control-Allow-Origin', '*');
+  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  response.headers.set('Access-Control-Max-Age', '86400');
+  return response;
+}
+
+// OPTIONSリクエストのハンドラー（CORS preflight）
+export async function OPTIONS() {
+  const response = new NextResponse(null, { status: 200 });
+  return setCorsHeaders(response);
+}
+
 export async function POST(request: NextRequest) {
   const timer = ServerLogger.startTimer('chat-api');
   
@@ -15,10 +30,11 @@ export async function POST(request: NextRequest) {
 
     if (!message) {
       ServerLogger.warn(LogCategory.API, 'メッセージが空です');
-      return NextResponse.json(
+      const response = NextResponse.json(
         { error: 'メッセージが空です' },
         { status: 400 }
       );
+      return setCorsHeaders(response);
     }
 
     // 認証チェック
@@ -28,7 +44,7 @@ export async function POST(request: NextRequest) {
     // 認証失敗の場合はNextResponseを返す
     if (authResult instanceof NextResponse) {
       ServerLogger.warn(LogCategory.API, '認証失敗');
-      return authResult;
+      return setCorsHeaders(authResult);
     }
     
     const { token } = authResult;
@@ -36,7 +52,7 @@ export async function POST(request: NextRequest) {
 
     // Morizo AIに送信（認証トークン付き）
     ServerLogger.info(LogCategory.API, 'Morizo AIにリクエスト送信開始');
-    const response = await authenticatedMorizoAIRequest(`${MORIZO_AI_URL}/chat`, {
+    const aiResponse = await authenticatedMorizoAIRequest(`${MORIZO_AI_URL}/chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -46,13 +62,13 @@ export async function POST(request: NextRequest) {
       }),
     }, token);
 
-    if (!response.ok) {
-      const errorMsg = `Morizo AI エラー: ${response.status}`;
-      ServerLogger.error(LogCategory.API, errorMsg, { status: response.status });
+    if (!aiResponse.ok) {
+      const errorMsg = `Morizo AI エラー: ${aiResponse.status}`;
+      ServerLogger.error(LogCategory.API, errorMsg, { status: aiResponse.status });
       throw new Error(errorMsg);
     }
 
-    const data = await response.json();
+    const data = await aiResponse.json();
     ServerLogger.info(LogCategory.API, 'Morizo AIからのレスポンス受信完了', { 
       responseLength: data.response?.length || data.message?.length 
     });
@@ -60,22 +76,25 @@ export async function POST(request: NextRequest) {
     timer();
     logApiCall('POST', '/api/chat', 200, undefined);
     
-    return NextResponse.json({
+    const nextResponse = NextResponse.json({
       response: data.response || data.message || 'レスポンスを取得できませんでした',
       success: true,
     });
+    
+    return setCorsHeaders(nextResponse);
 
   } catch (error) {
     timer();
     logError(LogCategory.API, error, 'chat-api');
     logApiCall('POST', '/api/chat', 500, undefined, error instanceof Error ? error.message : '不明なエラー');
     
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { 
         error: 'Morizo AIとの通信に失敗しました',
         details: error instanceof Error ? error.message : '不明なエラー'
       },
       { status: 500 }
     );
+    return setCorsHeaders(errorResponse);
   }
 }
