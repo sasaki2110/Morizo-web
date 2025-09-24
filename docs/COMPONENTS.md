@@ -11,7 +11,7 @@ Morizo WebアプリケーションのReactコンポーネント仕様書。各�
 メインアプリケーションページ。チャットUI、音声入力、認証トークン表示、APIテスト機能を統合。
 
 #### 機能
-- チャット履歴の表示
+- チャット履歴の表示（Markdownレンダリング対応）
 - テキストチャット機能
 - 音声チャット機能
 - 認証トークンの取得・表示
@@ -179,6 +179,47 @@ interface SplashScreenProps {
 ```tsx
 <SplashScreen message="読み込み中..." />
 ```
+
+---
+
+## Markdownレンダリング
+
+### **ReactMarkdown統合**
+
+AIからの回答を美しく表示するためのMarkdownレンダリング機能。
+
+#### 実装詳細
+```tsx
+import ReactMarkdown from 'react-markdown';
+
+// AIメッセージのMarkdownレンダリング
+{message.type === 'ai' ? (
+  <div className="prose prose-sm max-w-none prose-headings:text-gray-800 prose-headings:dark:text-white prose-strong:text-gray-800 prose-strong:dark:text-white prose-p:text-gray-800 prose-p:dark:text-white prose-li:text-gray-800 prose-li:dark:text-white">
+    <ReactMarkdown>
+      {message.content}
+    </ReactMarkdown>
+  </div>
+) : (
+  message.content
+)}
+```
+
+#### 対応Markdown記法
+- **見出し** (H1-H6)
+- **強調** (**太字**)
+- **リスト** (番号付き・箇条書き)
+- **段落** (改行・空行)
+- **インラインコード** (`コード`)
+
+#### スタイリング
+- Tailwind CSSのproseクラス使用
+- ダークモード対応
+- レスポンシブデザイン
+- カスタムカラーパレット
+
+#### 依存関係
+- `react-markdown`: Markdownレンダリング
+- `@tailwindcss/typography`: proseクラス
 
 ---
 

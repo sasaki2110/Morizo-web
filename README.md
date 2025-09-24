@@ -64,6 +64,7 @@ npm run dev
 - リアルタイムチャットインターフェース
 - AIエージェントとの対話
 - レシピ提案の表示
+- Markdown形式の回答レンダリング（react-markdown）
 
 ### API連携
 - Python AIエージェント（localhost:8000）との通信
@@ -113,10 +114,11 @@ uvicorn main:app --reload --port 8000
 
 - **フレームワーク**: Next.js 15 (App Router)
 - **言語**: TypeScript
-- **スタイリング**: Tailwind CSS
+- **スタイリング**: Tailwind CSS + @tailwindcss/typography
 - **認証**: Supabase Auth
 - **データベース**: Supabase PostgreSQL
 - **音声認識**: Web Speech API
+- **Markdownレンダリング**: react-markdown
 - **AI連携**: Python FastAPI (別リポジトリ)
 
 ## アーキテクチャ

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 import AuthWrapper from '@/components/AuthWrapper';
 import UserProfile from '@/components/UserProfile';
 import VoiceRecorder from '@/components/VoiceRecorder';
@@ -183,7 +184,15 @@ export default function Home() {
                       {message.type === 'user' ? 'あなた' : 'Morizo AI'}
                     </div>
                     <div className="text-sm text-gray-800 dark:text-white">
-                      {message.content}
+                      {message.type === 'ai' ? (
+                        <div className="prose prose-sm max-w-none prose-headings:text-gray-800 prose-headings:dark:text-white prose-strong:text-gray-800 prose-strong:dark:text-white prose-p:text-gray-800 prose-p:dark:text-white prose-li:text-gray-800 prose-li:dark:text-white">
+                          <ReactMarkdown>
+                            {message.content}
+                          </ReactMarkdown>
+                        </div>
+                      ) : (
+                        message.content
+                      )}
                     </div>
                   </div>
                 ))}
