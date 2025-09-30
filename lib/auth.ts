@@ -47,8 +47,21 @@ export async function authenticatedFetch(url: string, options: RequestInit = {})
     ...authHeaders,
   };
   
-  return fetch(url, {
-    ...options,
-    headers,
-  });
+  // 3分のタイムアウトを設定
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 180000); // 180秒 = 3分
+  
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers,
+      signal: controller.signal,
+    });
+    
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
 }

@@ -131,10 +131,17 @@ export async function authenticatedMorizoAIRequest(
   ServerLogger.info(LogCategory.API, 'Morizo AIにリクエスト送信中');
   
   try {
+    // 3分のタイムアウトを設定
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 180000); // 180秒 = 3分
+    
     const response = await fetch(url, {
       ...options,
       headers,
+      signal: controller.signal,
     });
+    
+    clearTimeout(timeoutId);
     
     ServerLogger.info(LogCategory.API, 'Morizo AIからのレスポンス受信', { 
       status: response.status,
