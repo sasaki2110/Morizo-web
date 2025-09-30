@@ -1,141 +1,56 @@
-# Morizo Web - プロジェクト概要
+# docs フォルダ構成
 
-Smart Pantry MVPのWebアプリケーション（チャットUI + 音声入力）
+## 概要
 
-## プロジェクト構成
+このフォルダは、Morizo Webプロジェクトの技術ドキュメントを整理・保管する場所です。
 
-- **Morizo-web** - Next.js 15 Webアプリ（このリポジトリ）
-- **Morizo-ai** - Python AIエージェント（別リポジトリ）
-- **Morizo-mobile** - Expo モバイルアプリ（別リポジトリ）
+## フォルダ構成
 
-## サービス構成
+### 📁 archive/
+実装や検証が完了し、過去資料となったドキュメントの保管場所
 
-- **morizo-web** - Next.js 15環境（ポート3000）
-- **morizo-mobile** - Expo環境（ポート8081, 19000-19001, 19006）
-- **morizo-ai** - Python AI環境（ポート8000）
+- `LOGGING.md` - ロギング設定（実装完了）
+- `LOGGING_IMPLEMENTATION.md` - ロギングシステム実装完了レポート
+- `SETUP.md` - セットアップ手順（ルートREADME.mdに統合済み）
 
-## クラウドサービス
+### 📁 reference/
+重要ではあるが、常時参照はせず、必要時に参照するドキュメント
 
-- **AWS EC2** - メインサーバー（Next.js + Python AI）
-- **Supabase** - 認証・データベース・リアルタイム機能（クラウド）
-- **OpenAI API** - LLM・音声認識（GPT-4, Whisper）
+- `ARCHITECTURE.md` - アーキテクチャ設計書
+- `COMPONENTS.md` - コンポーネント仕様書
+- `API.md` - API仕様書
+- `ROADMAP.md` - 開発ロードマップ
 
-## セットアップ
+## ドキュメント管理方針
 
-### 1. 依存関係のインストール
+### 基本方針
+- **PRIORITY_TASK.md**: 基本的なタスク・ToDo管理
+- **README.md**: 全体像の概要管理
+- **docs/**: 技術的な詳細ドキュメント
 
-```bash
-# 依存関係をインストール
-npm install
-```
+### 分類基準
+- **archive/**: 実装完了・検証済みの過去資料
+- **reference/**: 重要だが常時参照しない技術資料
 
-### 2. 環境変数の設定
+### 更新ルール
+- 実装完了時: archive/に移動
+- 新機能追加時: reference/に追加
+- 定期的な見直しと整理
 
-```bash
-# 環境変数ファイルの作成
-cp .env.example .env.local
+## 関連ファイル
 
-# 必要な環境変数を設定
-# NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
-# NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
-# OPENAI_API_KEY=your-openai-api-key
-```
+### ルートレベル
+- `README.md` - プロジェクト概要とセットアップ
+- `PRIORITY_TASK.md` - 優先タスクとToDo管理
+- `AGENTS.md` - AIエージェント協働ルール
 
-### 3. 開発サーバーの起動
+### 開発時参照
+- `docs/reference/ARCHITECTURE.md` - システム設計確認時
+- `docs/reference/COMPONENTS.md` - コンポーネント開発時
+- `docs/reference/API.md` - API開発時
+- `docs/reference/ROADMAP.md` - 開発計画確認時
 
-```bash
-# Next.js 開発サーバーを起動
-npm run dev
-```
+---
 
-## 機能
-
-### 認証機能
-- Supabase認証（メール/パスワード、Google認証）
-- 認証状態の管理
-- 認証付きAPI呼び出し
-
-### 音声入力
-- Web Speech API による音声認識
-- 自然言語での食材管理コマンド
-- 音声データのPython AIエージェントへの送信
-
-### チャットUI
-- リアルタイムチャットインターフェース
-- AIエージェントとの対話
-- レシピ提案の表示
-
-### API連携
-- Python AIエージェント（localhost:8000）との通信
-- Supabase（認証・データベース）との連携
-- OpenAI API（音声認識・LLM）の活用
-
-## アクセス先
-
-- **Webアプリ**: http://localhost:3000
-- **AI API**: http://localhost:8000
-- **Expo DevTools**: http://localhost:19000
-- **Supabase**: クラウド（認証・DB・リアルタイム）
-- **OpenAI API**: クラウド（LLM・音声認識）
-
-## 開発コマンド
-
-```bash
-# 開発サーバーの起動
-npm run dev
-
-# ビルド
-npm run build
-
-# 本番サーバーの起動
-npm run start
-
-# リンター
-npm run lint
-
-# TypeScript型チェック
-npm run type-check
-```
-
-## プロジェクト全体の起動
-
-```bash
-# ターミナル1: Next.js Webアプリ（このリポジトリ）
-npm run dev
-
-# ターミナル2: Python AIエージェント（別リポジトリ）
-cd ../Morizo-ai
-source venv/bin/activate
-uvicorn main:app --reload --port 8000
-```
-
-## 技術スタック
-
-- **フレームワーク**: Next.js 15 (App Router)
-- **言語**: TypeScript
-- **スタイリング**: Tailwind CSS
-- **認証**: Supabase Auth
-- **データベース**: Supabase PostgreSQL
-- **音声認識**: Web Speech API
-- **AI連携**: Python FastAPI (別リポジトリ)
-
-## アーキテクチャ
-
-```
-Next.js (このリポジトリ)
-├── チャットUI
-├── 音声入力
-├── 認証管理
-└── API Routes
-    ↓ HTTP API (localhost:8000)
-Python AI (Morizo-ai リポジトリ)
-    ↓
-Supabase (認証 + データベース)
-    ↓
-OpenAI API (GPT-4 + Whisper)
-```
-
-## 関連リポジトリ
-
-- **[Morizo-ai](../Morizo-ai)**: Python AIエージェント
-- **[Morizo-mobile](../Morizo-mobile)**: Expo モバイルアプリ
+**最終更新**: 2025年1月27日  
+**作成者**: AIエージェント協働チーム
