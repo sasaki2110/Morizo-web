@@ -11,6 +11,10 @@ import { supabase } from '@/lib/supabase';
 import { getCurrentAuthToken, authenticatedFetch } from '@/lib/auth';
 import { generateSSESessionId } from '@/lib/session-manager';
 
+import { MenuViewerWrapper } from '../components/MenuViewer';
+import { isMenuResponse } from '../lib/menu-parser';
+import { RecipeModalResponsive } from '../components/RecipeModal';
+
 export default function Home() {
   const [apiResponse, setApiResponse] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
@@ -21,6 +25,8 @@ export default function Home() {
   const [textMessage, setTextMessage] = useState<string>('');
   const [isTextChatLoading, setIsTextChatLoading] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalResponse, setModalResponse] = useState('');
   const { session } = useAuth();
 
   const testApi = async () => {
@@ -198,6 +204,18 @@ export default function Home() {
     }
   };
 
+  // レシピモーダルを開く関数
+  const openRecipeModal = (response: string) => {
+    setModalResponse(response);
+    setModalOpen(true);
+  };
+
+  // レシピモーダルを閉じる関数
+  const closeRecipeModal = () => {
+    setModalOpen(false);
+    setModalResponse('');
+  };
+
   return (
     <AuthWrapper>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
@@ -232,11 +250,31 @@ export default function Home() {
                           Morizo AI
                         </div>
                         <div className="text-sm text-gray-800 dark:text-white">
-                          <div className="prose prose-sm max-w-none prose-headings:text-gray-800 prose-headings:dark:text-white prose-strong:text-gray-800 prose-strong:dark:text-white prose-p:text-gray-800 prose-p:dark:text-white prose-li:text-gray-800 prose-li:dark:text-white">
-                            <ReactMarkdown>
-                              {message.content}
-                            </ReactMarkdown>
-                          </div>
+                          {/* レシピレスポンスの場合はモーダル表示ボタンを追加 */}
+                          {isMenuResponse(message.content) ? (
+                            <div className="space-y-4">
+                              <div className="prose prose-sm max-w-none prose-headings:text-gray-800 prose-headings:dark:text-white prose-strong:text-gray-800 prose-strong:dark:text-white prose-p:text-gray-800 prose-p:dark:text-white prose-li:text-gray-800 prose-li:dark:text-white">
+                                <ReactMarkdown>
+                                  {message.content}
+                                </ReactMarkdown>
+                              </div>
+                              <div className="flex items-center justify-center">
+                                <button
+                                  onClick={() => openRecipeModal(message.content)}
+                                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 font-medium flex items-center space-x-2"
+                                >
+                                  <span>🍽️</span>
+                                  <span>レシピを美しく表示</span>
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="prose prose-sm max-w-none prose-headings:text-gray-800 prose-headings:dark:text-white prose-strong:text-gray-800 prose-strong:dark:text-white prose-p:text-gray-800 prose-p:dark:text-white prose-li:text-gray-800 prose-li:dark:text-white">
+                              <ReactMarkdown>
+                                {message.content}
+                              </ReactMarkdown>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
@@ -400,6 +438,13 @@ export default function Home() {
           </div>
         </div>
       </div>
+      
+      {/* レシピモーダル */}
+      <RecipeModalResponsive
+        isOpen={modalOpen}
+        onClose={closeRecipeModal}
+        response={modalResponse}
+      />
     </AuthWrapper>
   );
 }
