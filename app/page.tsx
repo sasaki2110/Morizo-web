@@ -5,14 +5,16 @@ import ReactMarkdown from 'react-markdown';
 import AuthWrapper from '@/components/AuthWrapper';
 import UserProfile from '@/components/UserProfile';
 import VoiceRecorder from '@/components/VoiceRecorder';
+import StreamingProgress from '@/components/StreamingProgress';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { getCurrentAuthToken, authenticatedFetch } from '@/lib/auth';
+import { generateSSESessionId } from '@/lib/session-manager';
 
 export default function Home() {
   const [apiResponse, setApiResponse] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
-  const [chatMessages, setChatMessages] = useState<Array<{type: 'user' | 'ai', content: string}>>([]);
+  const [chatMessages, setChatMessages] = useState<Array<{type: 'user' | 'ai' | 'streaming', content: string, sseSessionId?: string, result?: any}>>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [authToken, setAuthToken] = useState<string>('');
   const [isTokenLoading, setIsTokenLoading] = useState(false);
@@ -47,13 +49,26 @@ export default function Home() {
     // ユーザーメッセージを追加
     setChatMessages(prev => [...prev, { type: 'user', content: text }]);
     
+    // SSEセッションIDを生成
+    const sseSessionId = generateSSESessionId();
+    
+    // ストリーミング進捗表示を追加
+    setChatMessages(prev => [...prev, { 
+      type: 'streaming', 
+      content: '', 
+      sseSessionId: sseSessionId 
+    }]);
+    
     try {
       const response = await authenticatedFetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ 
+          message: text,
+          sse_session_id: sseSessionId 
+        }),
       });
 
       if (!response.ok) {
@@ -62,13 +77,19 @@ export default function Home() {
 
       const data = await response.json();
       
-      // AIレスポンスを追加
-      setChatMessages(prev => [...prev, { type: 'ai', content: data.response }]);
+      // ストリーミング進捗表示をAIレスポンスに置き換え
+      setChatMessages(prev => prev.map((msg, index) => 
+        msg.type === 'streaming' && msg.sseSessionId === sseSessionId
+          ? { type: 'ai', content: data.response, result: data }
+          : msg
+      ));
     } catch (error) {
-      setChatMessages(prev => [...prev, { 
-        type: 'ai', 
-        content: `エラー: ${error instanceof Error ? error.message : '不明なエラー'}` 
-      }]);
+      // エラー時はストリーミング進捗表示をエラーメッセージに置き換え
+      setChatMessages(prev => prev.map((msg, index) => 
+        msg.type === 'streaming' && msg.sseSessionId === sseSessionId
+          ? { type: 'ai', content: `エラー: ${error instanceof Error ? error.message : '不明なエラー'}` }
+          : msg
+      ));
     } finally {
       setIsChatLoading(false);
     }
@@ -124,13 +145,26 @@ export default function Home() {
     const currentMessage = textMessage;
     setTextMessage(''); // 入力フィールドをクリア
     
+    // SSEセッションIDを生成
+    const sseSessionId = generateSSESessionId();
+    
+    // ストリーミング進捗表示を追加
+    setChatMessages(prev => [...prev, { 
+      type: 'streaming', 
+      content: '', 
+      sseSessionId: sseSessionId 
+    }]);
+    
     try {
       const response = await authenticatedFetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ message: currentMessage }),
+        body: JSON.stringify({ 
+          message: currentMessage,
+          sse_session_id: sseSessionId 
+        }),
       });
 
       if (!response.ok) {
@@ -139,13 +173,19 @@ export default function Home() {
 
       const data = await response.json();
       
-      // AIレスポンスを追加
-      setChatMessages(prev => [...prev, { type: 'ai', content: data.response }]);
+      // ストリーミング進捗表示をAIレスポンスに置き換え
+      setChatMessages(prev => prev.map((msg, index) => 
+        msg.type === 'streaming' && msg.sseSessionId === sseSessionId
+          ? { type: 'ai', content: data.response, result: data }
+          : msg
+      ));
     } catch (error) {
-      setChatMessages(prev => [...prev, { 
-        type: 'ai', 
-        content: `エラー: ${error instanceof Error ? error.message : '不明なエラー'}` 
-      }]);
+      // エラー時はストリーミング進捗表示をエラーメッセージに置き換え
+      setChatMessages(prev => prev.map((msg, index) => 
+        msg.type === 'streaming' && msg.sseSessionId === sseSessionId
+          ? { type: 'ai', content: `エラー: ${error instanceof Error ? error.message : '不明なエラー'}` }
+          : msg
+      ));
     } finally {
       setIsTextChatLoading(false);
     }
@@ -172,28 +212,65 @@ export default function Home() {
               </h3>
               <div className="space-y-4 max-h-96 overflow-y-auto">
                 {chatMessages.map((message, index) => (
-                  <div
-                    key={index}
-                    className={`p-3 rounded-lg ${
-                      message.type === 'user'
-                        ? 'bg-blue-100 dark:bg-blue-900 ml-8'
-                        : 'bg-gray-100 dark:bg-gray-700 mr-8'
-                    }`}
-                  >
-                    <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                      {message.type === 'user' ? 'あなた' : 'Morizo AI'}
-                    </div>
-                    <div className="text-sm text-gray-800 dark:text-white">
-                      {message.type === 'ai' ? (
-                        <div className="prose prose-sm max-w-none prose-headings:text-gray-800 prose-headings:dark:text-white prose-strong:text-gray-800 prose-strong:dark:text-white prose-p:text-gray-800 prose-p:dark:text-white prose-li:text-gray-800 prose-li:dark:text-white">
-                          <ReactMarkdown>
-                            {message.content}
-                          </ReactMarkdown>
+                  <div key={index}>
+                    {/* ユーザーメッセージ */}
+                    {message.type === 'user' && (
+                      <div className="p-3 rounded-lg bg-blue-100 dark:bg-blue-900 ml-8">
+                        <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                          あなた
                         </div>
-                      ) : (
-                        message.content
-                      )}
-                    </div>
+                        <div className="text-sm text-gray-800 dark:text-white">
+                          {message.content}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* AIメッセージ */}
+                    {message.type === 'ai' && (
+                      <div className="p-3 rounded-lg bg-gray-100 dark:bg-gray-700 mr-8">
+                        <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                          Morizo AI
+                        </div>
+                        <div className="text-sm text-gray-800 dark:text-white">
+                          <div className="prose prose-sm max-w-none prose-headings:text-gray-800 prose-headings:dark:text-white prose-strong:text-gray-800 prose-strong:dark:text-white prose-p:text-gray-800 prose-p:dark:text-white prose-li:text-gray-800 prose-li:dark:text-white">
+                            <ReactMarkdown>
+                              {message.content}
+                            </ReactMarkdown>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* ストリーミング進捗表示 */}
+                    {message.type === 'streaming' && message.sseSessionId && (
+                      <StreamingProgress
+                        sseSessionId={message.sseSessionId}
+                        onComplete={(result) => {
+                          // ストリーミング進捗表示をAIメッセージに置き換え
+                          setChatMessages(prev => prev.map((msg, idx) => 
+                            idx === index
+                              ? { type: 'ai', content: result?.response || '処理が完了しました', result: result }
+                              : msg
+                          ));
+                        }}
+                        onError={(error) => {
+                          // エラー時はエラーメッセージに置き換え
+                          setChatMessages(prev => prev.map((msg, idx) => 
+                            idx === index
+                              ? { type: 'ai', content: `エラー: ${error}` }
+                              : msg
+                          ));
+                        }}
+                        onTimeout={() => {
+                          // タイムアウト時はタイムアウトメッセージに置き換え
+                          setChatMessages(prev => prev.map((msg, idx) => 
+                            idx === index
+                              ? { type: 'ai', content: '処理がタイムアウトしました。しばらく時間をおいて再試行してください。' }
+                              : msg
+                          ));
+                        }}
+                      />
+                    )}
                   </div>
                 ))}
               </div>

@@ -25,8 +25,11 @@ export async function POST(request: NextRequest) {
   try {
     ServerLogger.info(LogCategory.API, 'チャットAPI呼び出し開始');
     
-    const { message } = await request.json();
-    ServerLogger.debug(LogCategory.API, 'リクエストボディ解析完了', { messageLength: message?.length });
+    const { message, sse_session_id } = await request.json();
+    ServerLogger.debug(LogCategory.API, 'リクエストボディ解析完了', { 
+      messageLength: message?.length,
+      sseSessionId: sse_session_id 
+    });
 
     if (!message) {
       ServerLogger.warn(LogCategory.API, 'メッセージが空です');
@@ -52,6 +55,9 @@ export async function POST(request: NextRequest) {
 
     // Morizo AIに送信（認証トークン付き）
     ServerLogger.info(LogCategory.API, 'Morizo AIにリクエスト送信開始');
+    ServerLogger.info(LogCategory.API, 'チャットAPI呼び出し開始 | Data', { 
+      sseSessionId: sse_session_id 
+    });
     const aiResponse = await authenticatedMorizoAIRequest(`${MORIZO_AI_URL}/chat`, {
       method: 'POST',
       headers: {
@@ -59,6 +65,7 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         message: message,
+        sse_session_id: sse_session_id
       }),
     }, token);
 

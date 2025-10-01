@@ -46,3 +46,6 @@ next-env.d.ts
 # MCP related files
 .serena/
 .spec-workflow/
+
+# バックとのドキュメント連携用
+SSE*.md
