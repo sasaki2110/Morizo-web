@@ -43,6 +43,8 @@ export async function GET(
         'Accept': 'text/event-stream',
         'Cache-Control': 'no-cache',
       },
+      // 180秒のタイムアウトを設定
+      signal: AbortSignal.timeout(180000),
     });
 
     if (!response.ok) {
