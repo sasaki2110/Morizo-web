@@ -47,6 +47,27 @@ export default function StreamingProgress({
     remaining_tasks: 0,
     is_complete: false
   });
+
+  // 進捗状態変更時のログ
+  useEffect(() => {
+    if (progress) {
+      console.log('📈 [UI] Progress updated:', {
+        completed: progress.completed_tasks,
+        total: progress.total_tasks,
+        percentage: progress.progress_percentage,
+        currentTask: progress.current_task,
+        remaining: progress.remaining_tasks,
+        isComplete: progress.is_complete,
+        sessionId: sseSessionId,
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      console.log('📈 [UI] Progress is undefined:', {
+        sessionId: sseSessionId,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }, [progress, sseSessionId]);
   const [message, setMessage] = useState<string>('');
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
@@ -134,26 +155,78 @@ export default function StreamingProgress({
                   try {
                     const jsonData = line.slice(6).trim();
                     if (jsonData) {
+                      console.log('📨 [SSE] Raw message received:', {
+                        rawData: jsonData,
+                        sessionId: sseSessionId,
+                        timestamp: new Date().toISOString()
+                      });
+                      
                       const data: StreamingMessage = JSON.parse(jsonData);
+                      
+                      console.log('📨 [SSE] Message parsed:', {
+                        parsedData: data,
+                        sessionId: sseSessionId,
+                        timestamp: new Date().toISOString()
+                      });
 
                       switch (data.type) {
                         case 'connected':
+                          console.log('🔗 [SSE] Connected:', {
+                            sessionId: sseSessionId,
+                            timestamp: data.timestamp
+                          });
                           setIsConnected(true);
                           break;
 
                         case 'start':
-                          setProgress(data.progress);
-                          setMessage(data.message);
+                          console.log('🚀 [SSE] Start received:', {
+                            type: data.type,
+                            progress: data.progress,
+                            message: data.message,
+                            timestamp: data.timestamp,
+                            sessionId: sseSessionId
+                          });
+                          if (data.progress) {
+                            setProgress(data.progress);
+                          }
+                          if (data.message) {
+                            setMessage(data.message);
+                          }
                           break;
 
                         case 'progress':
-                          setProgress(data.progress);
-                          setMessage(data.message);
+                          console.log('📊 [SSE] Progress received:', {
+                            type: data.type,
+                            progress: data.progress,
+                            message: data.message,
+                            timestamp: data.timestamp,
+                            sessionId: sseSessionId
+                          });
+                          if (data.progress) {
+                            setProgress(data.progress);
+                          }
+                          if (data.message) {
+                            setMessage(data.message);
+                          }
                           break;
 
                         case 'complete':
-                          setProgress(data.progress);
-                          setMessage(data.message);
+                          console.log('✅ [SSE] Complete received:', {
+                            type: data.type,
+                            progress: data.progress,
+                            message: data.message,
+                            timestamp: data.timestamp,
+                            sessionId: sseSessionId,
+                            hasResult: !!data.result
+                          });
+                          
+                          // progressが存在する場合のみ更新
+                          if (data.progress) {
+                            setProgress(data.progress);
+                          }
+                          if (data.message) {
+                            setMessage(data.message);
+                          }
                           
                           // 複数のcompleteメッセージに対応するため、ストリーミングを継続
                           // レスポンス優先順位: JSON形式 > テキスト形式
@@ -177,17 +250,36 @@ export default function StreamingProgress({
                           break;
 
                         case 'error':
+                          console.log('❌ [SSE] Error received:', {
+                            type: data.type,
+                            message: data.message,
+                            error: data.error,
+                            timestamp: data.timestamp,
+                            sessionId: sseSessionId
+                          });
                           setError(data.message);
                           setIsConnected(false);
                           onError(data.message);
                           return; // ストリーミング終了
 
                         case 'timeout':
+                          console.log('⏰ [SSE] Timeout received:', {
+                            type: data.type,
+                            message: data.message,
+                            timestamp: data.timestamp,
+                            sessionId: sseSessionId
+                          });
                           setIsConnected(false);
                           onTimeout();
                           return; // ストリーミング終了
 
                         case 'close':
+                          console.log('🔒 [SSE] Close received:', {
+                            type: data.type,
+                            message: data.message,
+                            timestamp: data.timestamp,
+                            sessionId: sseSessionId
+                          });
                           setIsConnected(false);
                           // ストリーミング終了処理はreader.read()のdoneで処理される
                           break;
@@ -279,18 +371,20 @@ export default function StreamingProgress({
       </div>
       
       {/* プログレスバー */}
-      <div className="mb-3">
-        <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400 mb-1">
-          <span>進捗: {progress?.completed_tasks || 0}/{progress?.total_tasks || 0} 完了</span>
-          <span>{progress?.progress_percentage || 0}%</span>
+      {progress && (
+        <div className="mb-3">
+          <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400 mb-1">
+            <span>進捗: {progress.completed_tasks || 0}/{progress.total_tasks || 0} 完了</span>
+            <span>{progress.progress_percentage || 0}%</span>
+          </div>
+          <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+            <div
+              className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
+              style={{ width: `${progress.progress_percentage || 0}%` }}
+            />
+          </div>
         </div>
-        <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
-          <div
-            className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
-            style={{ width: `${progress?.progress_percentage || 0}%` }}
-          />
-        </div>
-      </div>
+      )}
 
       {/* 現在のタスク */}
       {progress?.current_task && (
