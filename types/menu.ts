@@ -84,6 +84,8 @@ export interface RecipeCardProps {
 export interface MenuViewerProps {
   /** 生のレスポンステキスト */
   response: string;
+  /** APIレスポンスのresultオブジェクト（JSON形式対応） */
+  result?: unknown;
   /** カスタムクラス名 */
   className?: string;
 }

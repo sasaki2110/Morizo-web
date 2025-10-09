@@ -59,7 +59,10 @@ function UrlDropdown({ urls, onUrlClick }: UrlDropdownProps) {
 
   const selectedUrl = urls[selectedIndex];
 
-  const handleUrlClick = (url: string) => {
+  const handleUrlClick = (url: string, index: number) => {
+    // 選択状態を更新
+    setSelectedIndex(index);
+    
     if (onUrlClick) {
       onUrlClick(url);
     } else {
@@ -112,7 +115,7 @@ function UrlDropdown({ urls, onUrlClick }: UrlDropdownProps) {
           {urls.map((url, index) => (
             <button
               key={index}
-              onClick={() => handleUrlClick(url.url)}
+              onClick={() => handleUrlClick(url.url, index)}
               className={`w-full p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 ${
                 index === selectedIndex ? 'bg-blue-50 dark:bg-blue-900/20' : ''
               } ${index === 0 ? 'rounded-t-md' : ''} ${

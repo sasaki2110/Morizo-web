@@ -13,7 +13,7 @@ import { getCurrentAuthToken, authenticatedFetch } from '@/lib/auth';
 import { generateSSESessionId } from '@/lib/session-manager';
 
 import { MenuViewerWrapper } from '../components/MenuViewer';
-import { isMenuResponse } from '../lib/menu-parser';
+import { isMenuResponse, parseMenuResponseUnified } from '../lib/menu-parser';
 import { RecipeModalResponsive } from '../components/RecipeModal';
 
 export default function Home() {
@@ -28,6 +28,7 @@ export default function Home() {
   const [isCopied, setIsCopied] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalResponse, setModalResponse] = useState('');
+  const [modalResult, setModalResult] = useState<unknown>(undefined);
   const { session } = useAuth();
 
   const testApi = async () => {
@@ -206,8 +207,9 @@ export default function Home() {
   };
 
   // レシピモーダルを開く関数
-  const openRecipeModal = (response: string) => {
+  const openRecipeModal = (response: string, result?: unknown) => {
     setModalResponse(response);
+    setModalResult(result);
     setModalOpen(true);
   };
 
@@ -215,6 +217,7 @@ export default function Home() {
   const closeRecipeModal = () => {
     setModalOpen(false);
     setModalResponse('');
+    setModalResult(undefined);
   };
 
   return (
@@ -252,30 +255,61 @@ export default function Home() {
                         </div>
                         <div className="text-sm text-gray-800 dark:text-white">
                           {/* レシピレスポンスの場合はモーダル表示ボタンを追加 */}
-                          {isMenuResponse(message.content) ? (
-                            <div className="space-y-4">
-                              <div className="prose prose-sm max-w-none prose-headings:text-gray-800 prose-headings:dark:text-white prose-strong:text-gray-800 prose-strong:dark:text-white prose-p:text-gray-800 prose-p:dark:text-white prose-li:text-gray-800 prose-li:dark:text-white">
-                                <ReactMarkdown remarkPlugins={[remarkBreaks]}>
-                                  {message.content}
-                                </ReactMarkdown>
-                              </div>
-                              <div className="flex items-center justify-center">
-                                <button
-                                  onClick={() => openRecipeModal(message.content)}
-                                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 font-medium flex items-center space-x-2"
-                                >
-                                  <span>🍽️</span>
-                                  <span>レシピを美しく表示</span>
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="prose prose-sm max-w-none prose-headings:text-gray-800 prose-headings:dark:text-white prose-strong:text-gray-800 prose-strong:dark:text-white prose-p:text-gray-800 prose-p:dark:text-white prose-li:text-gray-800 prose-li:dark:text-white">
-                              <ReactMarkdown remarkPlugins={[remarkBreaks]}>
-                                {message.content}
-                              </ReactMarkdown>
-                            </div>
-                          )}
+                          {(() => {
+                            // JSON形式を優先してレシピデータを解析
+                            const parseResult = parseMenuResponseUnified(message.content, message.result);
+                            
+                            if (parseResult.success) {
+                              // レシピデータが正常に解析できた場合
+                              return (
+                                <div className="space-y-4">
+                                  <div className="prose prose-sm max-w-none prose-headings:text-gray-800 prose-headings:dark:text-white prose-strong:text-gray-800 prose-strong:dark:text-white prose-p:text-gray-800 prose-p:dark:text-white prose-li:text-gray-800 prose-li:dark:text-white">
+                                    <ReactMarkdown remarkPlugins={[remarkBreaks]}>
+                                      {message.content}
+                                    </ReactMarkdown>
+                                  </div>
+                                  <div className="flex items-center justify-center">
+                                    <button
+                                      onClick={() => openRecipeModal(message.content, message.result)}
+                                      className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 font-medium flex items-center space-x-2"
+                                    >
+                                      <span>🍽️</span>
+                                      <span>レシピを美しく表示</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            } else if (isMenuResponse(message.content)) {
+                              // フォールバック: 文字列解析でレシピデータを検出
+                              return (
+                                <div className="space-y-4">
+                                  <div className="prose prose-sm max-w-none prose-headings:text-gray-800 prose-headings:dark:text-white prose-strong:text-gray-800 prose-strong:dark:text-white prose-p:text-gray-800 prose-p:dark:text-white prose-li:text-gray-800 prose-li:dark:text-white">
+                                    <ReactMarkdown remarkPlugins={[remarkBreaks]}>
+                                      {message.content}
+                                    </ReactMarkdown>
+                                  </div>
+                                  <div className="flex items-center justify-center">
+                                    <button
+                                      onClick={() => openRecipeModal(message.content, message.result)}
+                                      className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 font-medium flex items-center space-x-2"
+                                    >
+                                      <span>🍽️</span>
+                                      <span>レシピを美しく表示</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            } else {
+                              // 通常のテキスト表示
+                              return (
+                                <div className="prose prose-sm max-w-none prose-headings:text-gray-800 prose-headings:dark:text-white prose-strong:text-gray-800 prose-strong:dark:text-white prose-p:text-gray-800 prose-p:dark:text-white prose-li:text-gray-800 prose-li:dark:text-white">
+                                  <ReactMarkdown remarkPlugins={[remarkBreaks]}>
+                                    {message.content}
+                                  </ReactMarkdown>
+                                </div>
+                              );
+                            }
+                          })()}
                         </div>
                       </div>
                     )}
@@ -285,10 +319,14 @@ export default function Home() {
                       <StreamingProgress
                         sseSessionId={message.sseSessionId}
                         onComplete={(result) => {
-                          // ストリーミング進捗表示をAIメッセージに置き換え
+                          // 複数completeメッセージの重複処理防止
+                          // 同じSSEセッションでの重複処理を避けるため、一度だけ処理
+                          const resultObj = result as { response?: string; menu_data?: unknown };
+                          
+                          // ストリーミング進捗表示をAIメッセージに置き換え（1回のみ）
                           setChatMessages(prev => prev.map((msg, idx) => 
                             idx === index
-                              ? { type: 'ai', content: (result as { response?: string })?.response || '処理が完了しました', result: result }
+                              ? { type: 'ai', content: resultObj?.response || '処理が完了しました', result: result }
                               : msg
                           ));
                         }}
@@ -445,6 +483,7 @@ export default function Home() {
         isOpen={modalOpen}
         onClose={closeRecipeModal}
         response={modalResponse}
+        result={modalResult}
       />
     </AuthWrapper>
   );

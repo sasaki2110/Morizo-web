@@ -20,6 +20,300 @@ export function isMenuResponse(response: string): boolean {
 }
 
 /**
+ * JSON形式のレスポンスからメニューデータを抽出
+ * @param result APIレスポンスのresultオブジェクト
+ * @returns ParseResult
+ */
+export function parseMenuFromJson(apiResult: unknown): ParseResult {
+  try {
+    // apiResultがオブジェクトでない場合はエラー
+    if (!apiResult || typeof apiResult !== 'object') {
+      return {
+        success: false,
+        error: 'apiResultがオブジェクトではありません',
+      };
+    }
+
+    const resultObj = apiResult as Record<string, unknown>;
+    
+    // menu_dataフィールドが存在しない場合はエラー
+    if (!resultObj.menu_data) {
+      return {
+        success: false,
+        error: 'menu_dataフィールドが存在しません',
+      };
+    }
+
+    const menuData = resultObj.menu_data as Record<string, unknown>;
+    
+    // innovativeとtraditionalの両方が存在することを確認
+    if (!menuData.innovative || !menuData.traditional) {
+      return {
+        success: false,
+        error: 'innovativeまたはtraditionalフィールドが存在しません',
+      };
+    }
+
+    // 型チェックとバリデーション
+    const innovative = validateMenuSection(menuData.innovative);
+    const traditional = validateMenuSection(menuData.traditional);
+
+    if (!innovative.success || !traditional.success) {
+      return {
+        success: false,
+        error: `セクションのバリデーションに失敗: ${innovative.error || traditional.error}`,
+      };
+    }
+
+    const menuResponse: MenuResponse = {
+      innovative: innovative.data!,
+      traditional: traditional.data!,
+    };
+
+    return {
+      success: true,
+      data: menuResponse,
+    };
+
+  } catch (error) {
+    return {
+      success: false,
+      error: `JSON解析中にエラーが発生しました: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    };
+  }
+}
+
+/**
+ * MenuSectionのバリデーション
+ */
+function validateMenuSection(section: unknown): ParseResult {
+  try {
+    if (!section || typeof section !== 'object') {
+      return {
+        success: false,
+        error: 'セクションがオブジェクトではありません',
+      };
+    }
+
+    const sectionObj = section as Record<string, unknown>;
+    
+    // titleフィールドの確認
+    if (!sectionObj.title || typeof sectionObj.title !== 'string') {
+      return {
+        success: false,
+        error: 'titleフィールドが存在しないか、文字列ではありません',
+      };
+    }
+
+    // recipesフィールドの確認
+    if (!sectionObj.recipes || typeof sectionObj.recipes !== 'object') {
+      return {
+        success: false,
+        error: 'recipesフィールドが存在しないか、オブジェクトではありません',
+      };
+    }
+
+    const recipesObj = sectionObj.recipes as Record<string, unknown>;
+    
+    // main, side, soupフィールドの確認
+    const categories = ['main', 'side', 'soup'] as const;
+    const validatedRecipes: { main: RecipeCard[]; side: RecipeCard[]; soup: RecipeCard[] } = {
+      main: [],
+      side: [],
+      soup: [],
+    };
+
+    for (const category of categories) {
+      if (!recipesObj[category] || !Array.isArray(recipesObj[category])) {
+        return {
+          success: false,
+          error: `${category}フィールドが存在しないか、配列ではありません`,
+        };
+      }
+
+      const recipeCards = recipesObj[category] as unknown[];
+      for (const recipeCard of recipeCards) {
+        const validatedCard = validateRecipeCard(recipeCard);
+        if (!validatedCard.success) {
+          return {
+            success: false,
+            error: `${category}のレシピカードのバリデーションに失敗: ${validatedCard.error}`,
+          };
+        }
+        validatedRecipes[category].push(validatedCard.data!);
+      }
+    }
+
+    const menuSection: MenuSection = {
+      title: sectionObj.title as string,
+      recipes: validatedRecipes,
+    };
+
+    return {
+      success: true,
+      data: menuSection,
+    };
+
+  } catch (error) {
+    return {
+      success: false,
+      error: `セクションのバリデーション中にエラーが発生しました: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    };
+  }
+}
+
+/**
+ * RecipeCardのバリデーション
+ */
+function validateRecipeCard(card: unknown): ParseResult {
+  try {
+    if (!card || typeof card !== 'object') {
+      return {
+        success: false,
+        error: 'レシピカードがオブジェクトではありません',
+      };
+    }
+
+    const cardObj = card as Record<string, unknown>;
+    
+    // 必須フィールドの確認
+    const requiredFields = ['title', 'emoji', 'category', 'urls'];
+    for (const field of requiredFields) {
+      if (!cardObj[field]) {
+        return {
+          success: false,
+          error: `${field}フィールドが存在しません`,
+        };
+      }
+    }
+
+    // titleの確認
+    if (typeof cardObj.title !== 'string') {
+      return {
+        success: false,
+        error: 'titleが文字列ではありません',
+      };
+    }
+
+    // emojiの確認
+    if (typeof cardObj.emoji !== 'string') {
+      return {
+        success: false,
+        error: 'emojiが文字列ではありません',
+      };
+    }
+
+    // categoryの確認
+    if (!['main', 'side', 'soup'].includes(cardObj.category as string)) {
+      return {
+        success: false,
+        error: 'categoryが有効な値ではありません',
+      };
+    }
+
+    // urlsの確認
+    if (!Array.isArray(cardObj.urls)) {
+      return {
+        success: false,
+        error: 'urlsが配列ではありません',
+      };
+    }
+
+    const urls: RecipeUrl[] = [];
+    for (const url of cardObj.urls as unknown[]) {
+      const validatedUrl = validateRecipeUrl(url);
+      if (!validatedUrl.success) {
+        return {
+          success: false,
+          error: `URLのバリデーションに失敗: ${validatedUrl.error}`,
+        };
+      }
+      urls.push(validatedUrl.data!);
+    }
+
+    const recipeCard: RecipeCard = {
+      title: cardObj.title as string,
+      emoji: cardObj.emoji as string,
+      category: cardObj.category as 'main' | 'side' | 'soup',
+      urls: urls,
+    };
+
+    return {
+      success: true,
+      data: recipeCard,
+    };
+
+  } catch (error) {
+    return {
+      success: false,
+      error: `レシピカードのバリデーション中にエラーが発生しました: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    };
+  }
+}
+
+/**
+ * RecipeUrlのバリデーション
+ */
+function validateRecipeUrl(url: unknown): ParseResult {
+  try {
+    if (!url || typeof url !== 'object') {
+      return {
+        success: false,
+        error: 'URLがオブジェクトではありません',
+      };
+    }
+
+    const urlObj = url as Record<string, unknown>;
+    
+    // 必須フィールドの確認
+    const requiredFields = ['title', 'url', 'domain'];
+    for (const field of requiredFields) {
+      if (!urlObj[field] || typeof urlObj[field] !== 'string') {
+        return {
+          success: false,
+          error: `${field}フィールドが存在しないか、文字列ではありません`,
+        };
+      }
+    }
+
+    const recipeUrl: RecipeUrl = {
+      title: urlObj.title as string,
+      url: urlObj.url as string,
+      domain: urlObj.domain as string,
+    };
+
+    return {
+      success: true,
+      data: recipeUrl,
+    };
+
+  } catch (error) {
+    return {
+      success: false,
+      error: `URLのバリデーション中にエラーが発生しました: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    };
+  }
+}
+
+/**
+ * 統合されたメニュー解析関数
+ * JSON形式を優先し、フォールバックとして文字列解析を使用
+ */
+export function parseMenuResponseUnified(response: string, apiResult?: unknown): ParseResult {
+  // 1. JSON形式を優先
+  if (apiResult) {
+    const jsonResult = parseMenuFromJson(apiResult);
+    if (jsonResult.success) {
+      return jsonResult;
+    }
+    console.warn('JSON形式の解析に失敗、文字列解析にフォールバック:', jsonResult.error);
+  }
+
+  // 2. フォールバック: 文字列解析
+  return parseMenuResponse(response);
+}
+
+/**
  * URLからドメイン名を抽出
  */
 function extractDomain(url: string): string {

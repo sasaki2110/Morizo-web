@@ -7,6 +7,7 @@
 
 import React, { useEffect } from 'react';
 import { MenuViewer } from './MenuViewer';
+import { parseMenuResponseUnified } from '../lib/menu-parser';
 
 interface RecipeModalProps {
   /** モーダルの表示状態 */
@@ -15,11 +16,13 @@ interface RecipeModalProps {
   onClose: () => void;
   /** レシピレスポンス */
   response: string;
+  /** APIレスポンスのresultオブジェクト（JSON形式対応） */
+  result?: unknown;
   /** カスタムクラス名 */
   className?: string;
 }
 
-export function RecipeModal({ isOpen, onClose, response, className = '' }: RecipeModalProps) {
+export function RecipeModal({ isOpen, onClose, response, result, className = '' }: RecipeModalProps) {
   // ESCキーでモーダルを閉じる
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
@@ -86,7 +89,7 @@ export function RecipeModal({ isOpen, onClose, response, className = '' }: Recip
         {/* コンテンツエリア */}
         <div className="overflow-y-auto max-h-[calc(90vh-80px)]">
           <div className="p-6">
-            <MenuViewer response={response} />
+            <MenuViewer response={response} result={result} />
           </div>
         </div>
 
@@ -110,7 +113,7 @@ export function RecipeModal({ isOpen, onClose, response, className = '' }: Recip
 /**
  * モバイル最適化版モーダル
  */
-export function RecipeModalMobile({ isOpen, onClose, response, className = '' }: RecipeModalProps) {
+export function RecipeModalMobile({ isOpen, onClose, response, result, className = '' }: RecipeModalProps) {
   // ESCキーでモーダルを閉じる
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
@@ -174,7 +177,7 @@ export function RecipeModalMobile({ isOpen, onClose, response, className = '' }:
         {/* コンテンツエリア */}
         <div className="flex-1 overflow-y-auto">
           <div className="p-4">
-            <MenuViewer response={response} />
+            <MenuViewer response={response} result={result} />
           </div>
         </div>
 
@@ -195,7 +198,7 @@ export function RecipeModalMobile({ isOpen, onClose, response, className = '' }:
 /**
  * レスポンシブ対応モーダル（自動切り替え）
  */
-export function RecipeModalResponsive({ isOpen, onClose, response, className = '' }: RecipeModalProps) {
+export function RecipeModalResponsive({ isOpen, onClose, response, result, className = '' }: RecipeModalProps) {
   return (
     <>
       {/* デスクトップ版 */}
@@ -204,6 +207,7 @@ export function RecipeModalResponsive({ isOpen, onClose, response, className = '
           isOpen={isOpen} 
           onClose={onClose} 
           response={response} 
+          result={result}
           className={className}
         />
       </div>
@@ -214,6 +218,7 @@ export function RecipeModalResponsive({ isOpen, onClose, response, className = '
           isOpen={isOpen} 
           onClose={onClose} 
           response={response} 
+          result={result}
           className={className}
         />
       </div>

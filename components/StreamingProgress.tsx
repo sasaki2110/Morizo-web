@@ -13,7 +13,7 @@ interface ProgressData {
 }
 
 interface StreamingMessage {
-  type: 'start' | 'progress' | 'complete' | 'error' | 'timeout';
+  type: 'connected' | 'start' | 'progress' | 'complete' | 'error' | 'timeout' | 'close';
   sse_session_id: string;
   timestamp: string;
   message: string;
@@ -50,16 +50,39 @@ export default function StreamingProgress({
   const [message, setMessage] = useState<string>('');
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
+  const [lastValidResult, setLastValidResult] = useState<unknown>(null);
+  
+  // 複数SSE接続の防止とlastValidResultの状態管理改善
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const lastValidResultRef = useRef<unknown>(null);
+  const isConnectingRef = useRef<boolean>(false);
+  const isAbortedRef = useRef<boolean>(false);
 
   useEffect(() => {
     const connectToStream = async () => {
+      // 既存の接続をクリーンアップ
+      if (abortControllerRef.current) {
+        isAbortedRef.current = true;
+        abortControllerRef.current.abort();
+      }
+      
+      // 接続中の場合は重複接続を防止
+      if (isConnectingRef.current) {
+        return;
+      }
+      
+      isConnectingRef.current = true;
+      isAbortedRef.current = false;
+      
       try {
         const token = await getCurrentAuthToken();
         if (!token) {
           throw new Error('認証トークンが取得できません');
         }
-
-        console.log('ストリーミング接続開始:', sseSessionId);
+        
+        // AbortControllerを作成
+        const abortController = new AbortController();
+        abortControllerRef.current = abortController;
 
         // fetch API + ReadableStreamを使用してSSE接続
         const response = await fetch(`/api/chat-stream/${sseSessionId}`, {
@@ -70,14 +93,13 @@ export default function StreamingProgress({
             'Cache-Control': 'no-cache',
           },
           // 180秒のタイムアウトを設定
-          signal: AbortSignal.timeout(180000),
+          signal: abortController.signal,
         });
 
         if (!response.ok) {
           throw new Error(`SSE接続エラー: ${response.status}`);
         }
 
-        console.log('SSE接続が開かれました');
         setIsConnected(true);
         setError('');
 
@@ -92,7 +114,15 @@ export default function StreamingProgress({
             while (true) {
               const { done, value } = await reader.read();
               if (done) {
-                console.log('ストリーミング接続が終了しました');
+                // ストリーミング終了時に最後の有効なレスポンスを送信
+                const finalResult = lastValidResultRef.current;
+                if (finalResult) {
+                  onComplete(finalResult);
+                } else {
+                  console.warn('ストリーミング終了: 有効なレスポンスが見つかりませんでした');
+                  // エラーとして処理
+                  onError('ストリーミング処理中に有効なレスポンスが受信されませんでした');
+                }
                 break;
               }
 
@@ -105,9 +135,12 @@ export default function StreamingProgress({
                     const jsonData = line.slice(6).trim();
                     if (jsonData) {
                       const data: StreamingMessage = JSON.parse(jsonData);
-                      console.log('ストリーミングメッセージ受信:', data);
 
                       switch (data.type) {
+                        case 'connected':
+                          setIsConnected(true);
+                          break;
+
                         case 'start':
                           setProgress(data.progress);
                           setMessage(data.message);
@@ -121,9 +154,27 @@ export default function StreamingProgress({
                         case 'complete':
                           setProgress(data.progress);
                           setMessage(data.message);
-                          setIsConnected(false);
-                          onComplete(data.result);
-                          return; // ストリーミング終了
+                          
+                          // 複数のcompleteメッセージに対応するため、ストリーミングを継続
+                          // レスポンス優先順位: JSON形式 > テキスト形式
+                          if (data.result) {
+                            const resultObj = data.result as Record<string, unknown>;
+                            const hasMenuData = resultObj && 'menu_data' in resultObj;
+                            
+                            // JSON形式のレスポンスを最優先で保持
+                            if (hasMenuData) {
+                              setLastValidResult(data.result);
+                              lastValidResultRef.current = data.result;
+                            } else if (!lastValidResultRef.current) {
+                              // テキスト形式はJSON形式がない場合のみフォールバックとして使用
+                              setLastValidResult(data.result);
+                              lastValidResultRef.current = data.result;
+                            }
+                          }
+                          
+                          // 複数completeメッセージの吸収: 親コンポーネントへの通知は最後の1回のみ
+                          // ストリーミング終了時にlastValidResultを使用するため、ここでは通知しない
+                          break;
 
                         case 'error':
                           setError(data.message);
@@ -136,8 +187,13 @@ export default function StreamingProgress({
                           onTimeout();
                           return; // ストリーミング終了
 
+                        case 'close':
+                          setIsConnected(false);
+                          // ストリーミング終了処理はreader.read()のdoneで処理される
+                          break;
+
                         default:
-                          console.warn('未知のメッセージタイプ:', data.type);
+                          console.warn(`未知のメッセージタイプ [${data.type}]:`, data);
                       }
                     }
                   } catch (parseError) {
@@ -148,10 +204,18 @@ export default function StreamingProgress({
               }
             }
           } catch (streamError) {
+            // AbortErrorは正常な中断として処理
+            if (streamError instanceof Error && streamError.name === 'AbortError') {
+              return;
+            }
+            
+            // その他のエラーのみエラーとして処理
             console.error('ストリーミング処理エラー:', streamError);
-            setIsConnected(false);
-            setError('ストリーミング処理にエラーが発生しました');
-            onError('ストリーミング処理にエラーが発生しました');
+            if (!isAbortedRef.current) {
+              setIsConnected(false);
+              setError('ストリーミング処理にエラーが発生しました');
+              onError('ストリーミング処理にエラーが発生しました');
+            }
           }
         };
 
@@ -159,10 +223,22 @@ export default function StreamingProgress({
         processStream();
 
       } catch (error) {
+        // AbortErrorは正常な中断として処理
+        if (error instanceof Error && error.name === 'AbortError') {
+          console.log('ストリーミング接続が正常に中断されました');
+          // 中断の場合はエラーとして処理しない
+          return;
+        }
+        
+        // その他のエラーのみエラーとして処理
         console.error('ストリーミング接続エラー:', error);
-        setError(error instanceof Error ? error.message : '不明なエラー');
-        setIsConnected(false);
-        onError(error instanceof Error ? error.message : '不明なエラー');
+        if (!isAbortedRef.current) {
+          setError(error instanceof Error ? error.message : '不明なエラー');
+          setIsConnected(false);
+          onError(error instanceof Error ? error.message : '不明なエラー');
+        }
+      } finally {
+        isConnectingRef.current = false;
       }
     };
 
@@ -170,6 +246,14 @@ export default function StreamingProgress({
 
     // クリーンアップ関数
     return () => {
+      isAbortedRef.current = true;
+      
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+      
+      isConnectingRef.current = false;
       setIsConnected(false);
     };
   }, [sseSessionId, onComplete, onError, onTimeout]);
@@ -197,19 +281,19 @@ export default function StreamingProgress({
       {/* プログレスバー */}
       <div className="mb-3">
         <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400 mb-1">
-          <span>進捗: {progress.completed_tasks}/{progress.total_tasks} 完了</span>
-          <span>{progress.progress_percentage}%</span>
+          <span>進捗: {progress?.completed_tasks || 0}/{progress?.total_tasks || 0} 完了</span>
+          <span>{progress?.progress_percentage || 0}%</span>
         </div>
         <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
           <div
             className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
-            style={{ width: `${progress.progress_percentage}%` }}
+            style={{ width: `${progress?.progress_percentage || 0}%` }}
           />
         </div>
       </div>
 
       {/* 現在のタスク */}
-      {progress.current_task && (
+      {progress?.current_task && (
         <div className="text-sm text-gray-700 dark:text-gray-300 mb-2">
           <span className="font-medium">現在の処理:</span> {progress.current_task}
         </div>

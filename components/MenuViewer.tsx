@@ -7,7 +7,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { MenuViewerProps, MenuResponse, RecipeCard } from '../types/menu';
-import { parseMenuResponse, isMenuResponse } from '../lib/menu-parser';
+import { parseMenuResponse, isMenuResponse, parseMenuResponseUnified } from '../lib/menu-parser';
 import { RecipeCard as RecipeCardComponent, RecipeCardSkeleton, RecipeCardError } from './RecipeCard';
 
 /**
@@ -15,18 +15,14 @@ import { RecipeCard as RecipeCardComponent, RecipeCardSkeleton, RecipeCardError 
  */
 interface SectionTitleProps {
   title: string;
-  recipeCount: number;
 }
 
-function SectionTitle({ title, recipeCount }: SectionTitleProps) {
+function SectionTitle({ title }: SectionTitleProps) {
   return (
     <div className="flex items-center justify-between mb-6">
       <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
         {title}
       </h2>
-      <span className="text-sm bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-3 py-1 rounded-full">
-        {recipeCount}個のレシピ
-      </span>
     </div>
   );
 }
@@ -55,56 +51,81 @@ function RecipeGrid({ recipes, category, emoji }: RecipeGridProps) {
   return (
     <>
       {recipes.map((recipe, index) => (
-        <RecipeCardComponent
-          key={`${category}-${index}`}
-          recipe={recipe}
-        />
+        <div key={`${category}-${index}`}>
+          <RecipeCardComponent
+            recipe={recipe}
+          />
+        </div>
       ))}
     </>
   );
 }
 
 /**
+ * セクション情報を取得するヘルパー関数
+ */
+function getSectionInfo(parseResult: MenuResponse) {
+  const innovative = parseResult.innovative.title;
+  const traditional = parseResult.traditional.title;
+  
+  const innovativeRecipes = {
+    main: parseResult.innovative.recipes.main,
+    side: parseResult.innovative.recipes.side,
+    soup: parseResult.innovative.recipes.soup,
+  };
+  
+  const traditionalRecipes = {
+    main: parseResult.traditional.recipes.main,
+    side: parseResult.traditional.recipes.side,
+    soup: parseResult.traditional.recipes.soup,
+  };
+  
+  return {
+    innovative,
+    traditional,
+    innovativeRecipes,
+    traditionalRecipes,
+  };
+}
+
+/**
+ * レシピ数を計算するヘルパー関数
+ */
+function getTotalRecipeCount(recipes: { main: RecipeCard[]; side: RecipeCard[]; soup: RecipeCard[] }) {
+  return recipes.main.length + recipes.side.length + recipes.soup.length;
+}
+
+/**
  * メニュービューアーのメインコンポーネント
  */
-export function MenuViewer({ response, className = '' }: MenuViewerProps) {
+export function MenuViewer({ response, result, className = '' }: MenuViewerProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [parseError, setParseError] = useState<string | null>(null);
 
-  // レスポンス解析
+  // レスポンス解析（JSON形式を優先）
   const parseResult = useMemo(() => {
     setIsLoading(true);
     setParseError(null);
 
     try {
-      const result = parseMenuResponse(response);
+      // JSON形式を優先してレシピデータを解析
+      const parseResponse = parseMenuResponseUnified(response, result);
       
-      if (!result.success) {
-        setParseError(result.error || '解析に失敗しました');
+      if (!parseResponse.success) {
+        console.error('MenuViewer: 解析失敗', parseResponse.error);
+        setParseError(parseResponse.error || '解析に失敗しました');
         return null;
       }
-
-      return result.data;
+      
+      return parseResponse.data;
     } catch (error) {
+      console.error('MenuViewer: 解析エラー', error);
       setParseError(error instanceof Error ? error.message : 'Unknown error');
       return null;
     } finally {
       setIsLoading(false);
     }
-  }, [response]);
-
-  // ローディング状態
-  if (isLoading) {
-    return (
-      <div className={`menu-viewer ${className}`}>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <RecipeCardSkeleton key={index} />
-          ))}
-        </div>
-      </div>
-    );
-  }
+  }, [response, result]);
 
   // エラー状態
   if (parseError || !parseResult) {
@@ -118,102 +139,60 @@ export function MenuViewer({ response, className = '' }: MenuViewerProps) {
     );
   }
 
-  const { innovative, traditional } = parseResult;
+  // ローディング状態
+  if (isLoading) {
+    return (
+      <div className={`menu-viewer ${className}`}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <RecipeCardSkeleton key={index} />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
-  // 全レシピ数を計算
-  const getTotalRecipeCount = (section: MenuResponse['innovative']) => {
-    return section.recipes.main.length + section.recipes.side.length + section.recipes.soup.length;
-  };
+  // セクション情報を取得
+  const { innovative, traditional, innovativeRecipes, traditionalRecipes } = getSectionInfo(parseResult);
 
-  const innovativeCount = getTotalRecipeCount(innovative);
-  const traditionalCount = getTotalRecipeCount(traditional);
+  // レシピ数を計算
+  const innovativeCount = getTotalRecipeCount(innovativeRecipes);
+  const traditionalCount = getTotalRecipeCount(traditionalRecipes);
 
   return (
     <div className={`menu-viewer ${className}`}>
+
       {/* 斬新な提案セクション */}
       {innovativeCount > 0 && (
-        <div className="mb-12">
-          <SectionTitle title={innovative.title} recipeCount={innovativeCount} />
-          
-          {/* レスポンシブグリッドレイアウト */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* メイン料理 */}
-            <RecipeGrid
-              recipes={innovative.recipes.main}
-              category="main"
-              emoji="🍖"
-            />
-            
-            {/* 副菜 */}
-            <RecipeGrid
-              recipes={innovative.recipes.side}
-              category="side"
-              emoji="🥗"
-            />
-            
-            {/* 汁物 */}
-            <RecipeGrid
-              recipes={innovative.recipes.soup}
-              category="soup"
-              emoji="🍵"
-            />
+        <div className="mb-8">
+          <SectionTitle title={innovative} />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <RecipeGrid recipes={innovativeRecipes.main} category="main" emoji="🍖" />
+            <RecipeGrid recipes={innovativeRecipes.side} category="side" emoji="🥗" />
+            <RecipeGrid recipes={innovativeRecipes.soup} category="soup" emoji="🍵" />
           </div>
         </div>
       )}
 
       {/* 伝統的な提案セクション */}
       {traditionalCount > 0 && (
-        <div className="mb-12">
-          <SectionTitle title={traditional.title} recipeCount={traditionalCount} />
-          
-          {/* レスポンシブグリッドレイアウト */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* メイン料理 */}
-            <RecipeGrid
-              recipes={traditional.recipes.main}
-              category="main"
-              emoji="🍖"
-            />
-            
-            {/* 副菜 */}
-            <RecipeGrid
-              recipes={traditional.recipes.side}
-              category="side"
-              emoji="🥗"
-            />
-            
-            {/* 汁物 */}
-            <RecipeGrid
-              recipes={traditional.recipes.soup}
-              category="soup"
-              emoji="🍵"
-            />
+        <div className="mb-8">
+          <SectionTitle title={traditional} />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <RecipeGrid recipes={traditionalRecipes.main} category="main" emoji="🍖" />
+            <RecipeGrid recipes={traditionalRecipes.side} category="side" emoji="🥗" />
+            <RecipeGrid recipes={traditionalRecipes.soup} category="soup" emoji="🍵" />
           </div>
         </div>
       )}
 
-      {/* レシピが存在しない場合 */}
+      {/* レシピがない場合 */}
       {innovativeCount === 0 && traditionalCount === 0 && (
-        <div className="text-center py-12">
-          <div className="text-6xl mb-4">🍽️</div>
-          <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-2">
-            レシピが見つかりませんでした
-          </h3>
-          <p className="text-gray-600 dark:text-gray-400">
-            レスポンスに有効なレシピ情報が含まれていません
-          </p>
+        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+          <span className="text-4xl mb-2 block">🍽️</span>
+          <p>レシピが見つかりませんでした</p>
         </div>
       )}
-
-      {/* フッター情報 */}
-      <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
-          <span>MorizoAI レシピビューアー</span>
-          <span>
-            合計 {innovativeCount + traditionalCount} 個のレシピ
-          </span>
-        </div>
-      </div>
     </div>
   );
 }
@@ -224,12 +203,14 @@ export function MenuViewer({ response, className = '' }: MenuViewerProps) {
  */
 interface MenuViewerWrapperProps {
   response: string;
+  result?: unknown;
   className?: string;
   fallbackComponent?: React.ReactNode;
 }
 
 export function MenuViewerWrapper({ 
   response, 
+  result,
   className = '', 
   fallbackComponent 
 }: MenuViewerWrapperProps) {
@@ -238,7 +219,7 @@ export function MenuViewerWrapper({
     return fallbackComponent ? <>{fallbackComponent}</> : null;
   }
 
-  return <MenuViewer response={response} className={className} />;
+  return <MenuViewer response={response} result={result} className={className} />;
 }
 
 /**
