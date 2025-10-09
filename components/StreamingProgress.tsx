@@ -48,6 +48,15 @@ export default function StreamingProgress({
     is_complete: false
   });
 
+  // アニメーション段階の管理
+  const getAnimationStage = (progress: ProgressData): 'gradient' | 'pulse' | 'sparkle' => {
+    if (progress.total_tasks === 0) return 'gradient'; // 0/0 → 0/4: グラデーション
+    if (progress.completed_tasks === 0) return 'pulse'; // 0/4 → 1/4: パルス
+    return 'sparkle'; // 1/4 → 4/4: スパークル
+  };
+
+  const animationStage = getAnimationStage(progress);
+
   // 進捗状態変更時のログ
   useEffect(() => {
     if (progress) {
@@ -366,8 +375,19 @@ export default function StreamingProgress({
 
   return (
     <div className="p-3 rounded-lg bg-gray-100 dark:bg-gray-700 mr-8">
-      <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
-        Morizo AI - 処理中
+      <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1 flex items-center justify-between">
+        <span>Morizo AI - 処理中</span>
+        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+          animationStage === 'gradient' 
+            ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white animate-pulse'
+            : animationStage === 'pulse'
+            ? 'bg-blue-500 text-white animate-pulse shadow-lg shadow-blue-500/50'
+            : 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white animate-pulse'
+        }`}>
+          {animationStage === 'gradient' ? '🌈 準備中' : 
+           animationStage === 'pulse' ? '⚡ 開始！' : 
+           '✨ 進行中'}
+        </span>
       </div>
       
       {/* プログレスバー */}
@@ -377,11 +397,53 @@ export default function StreamingProgress({
             <span>進捗: {progress.completed_tasks || 0}/{progress.total_tasks || 0} 完了</span>
             <span>{progress.progress_percentage || 0}%</span>
           </div>
-          <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+          <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-3 relative overflow-hidden" style={{ willChange: 'transform' }}>
+            {/* プログレスバーの背景 */}
             <div
-              className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
+              className={`h-3 rounded-full transition-all duration-500 ease-out relative ${
+                animationStage === 'gradient' 
+                  ? 'bg-gradient-to-r from-purple-500 via-pink-500 to-red-500 animate-pulse' 
+                  : animationStage === 'pulse'
+                  ? 'bg-blue-500 animate-pulse shadow-lg shadow-blue-500/50'
+                  : 'bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500'
+              }`}
               style={{ width: `${progress.progress_percentage || 0}%` }}
-            />
+            >
+              {/* スパークル効果 */}
+              {animationStage === 'sparkle' && (
+                <>
+                  {/* メインのスパークル背景 */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-yellow-300 via-orange-400 to-red-500 opacity-80 animate-pulse"></div>
+                  
+                  {/* シャイニー効果 - 光の帯が流れる */}
+                  <div className="absolute inset-0 overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-60 transform -skew-x-12 animate-pulse"></div>
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-yellow-200 to-transparent opacity-40 transform -skew-x-12 animate-pulse" style={{ animationDelay: '0.5s' }}></div>
+                  </div>
+                  
+                  {/* キラキラパーティクル */}
+                  <div className="absolute inset-0">
+                    <div className="absolute top-1 left-1/4 w-1 h-1 bg-white rounded-full opacity-80 animate-ping" style={{ animationDelay: '0s', willChange: 'transform, opacity' }}></div>
+                    <div className="absolute top-2 right-1/3 w-1 h-1 bg-yellow-200 rounded-full opacity-80 animate-ping" style={{ animationDelay: '0.3s', willChange: 'transform, opacity' }}></div>
+                    <div className="absolute bottom-1 left-1/2 w-1 h-1 bg-white rounded-full opacity-80 animate-ping" style={{ animationDelay: '0.6s', willChange: 'transform, opacity' }}></div>
+                    <div className="absolute top-1 right-1/4 w-1 h-1 bg-yellow-200 rounded-full opacity-80 animate-ping" style={{ animationDelay: '0.9s', willChange: 'transform, opacity' }}></div>
+                    <div className="absolute bottom-2 left-1/3 w-1 h-1 bg-white rounded-full opacity-80 animate-ping" style={{ animationDelay: '1.2s', willChange: 'transform, opacity' }}></div>
+                    <div className="absolute top-0 left-1/6 w-0.5 h-0.5 bg-yellow-300 rounded-full opacity-90 animate-ping" style={{ animationDelay: '1.5s', willChange: 'transform, opacity' }}></div>
+                    <div className="absolute bottom-0 right-1/6 w-0.5 h-0.5 bg-white rounded-full opacity-90 animate-ping" style={{ animationDelay: '1.8s', willChange: 'transform, opacity' }}></div>
+                  </div>
+                  
+                  {/* グリッター効果 */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 opacity-30 animate-pulse"></div>
+                </>
+              )}
+              
+              {/* グラデーション効果 */}
+              {animationStage === 'gradient' && (
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-400 via-pink-400 to-red-400 opacity-80 animate-pulse">
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-40 animate-pulse"></div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
