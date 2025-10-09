@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkBreaks from 'remark-breaks';
 import AuthWrapper from '@/components/AuthWrapper';
 import UserProfile from '@/components/UserProfile';
 import VoiceRecorder from '@/components/VoiceRecorder';
@@ -18,7 +19,7 @@ import { RecipeModalResponsive } from '../components/RecipeModal';
 export default function Home() {
   const [apiResponse, setApiResponse] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
-  const [chatMessages, setChatMessages] = useState<Array<{type: 'user' | 'ai' | 'streaming', content: string, sseSessionId?: string, result?: any}>>([]);
+  const [chatMessages, setChatMessages] = useState<Array<{type: 'user' | 'ai' | 'streaming', content: string, sseSessionId?: string, result?: unknown}>>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [authToken, setAuthToken] = useState<string>('');
   const [isTokenLoading, setIsTokenLoading] = useState(false);
@@ -254,7 +255,7 @@ export default function Home() {
                           {isMenuResponse(message.content) ? (
                             <div className="space-y-4">
                               <div className="prose prose-sm max-w-none prose-headings:text-gray-800 prose-headings:dark:text-white prose-strong:text-gray-800 prose-strong:dark:text-white prose-p:text-gray-800 prose-p:dark:text-white prose-li:text-gray-800 prose-li:dark:text-white">
-                                <ReactMarkdown>
+                                <ReactMarkdown remarkPlugins={[remarkBreaks]}>
                                   {message.content}
                                 </ReactMarkdown>
                               </div>
@@ -270,7 +271,7 @@ export default function Home() {
                             </div>
                           ) : (
                             <div className="prose prose-sm max-w-none prose-headings:text-gray-800 prose-headings:dark:text-white prose-strong:text-gray-800 prose-strong:dark:text-white prose-p:text-gray-800 prose-p:dark:text-white prose-li:text-gray-800 prose-li:dark:text-white">
-                              <ReactMarkdown>
+                              <ReactMarkdown remarkPlugins={[remarkBreaks]}>
                                 {message.content}
                               </ReactMarkdown>
                             </div>
@@ -287,7 +288,7 @@ export default function Home() {
                           // ストリーミング進捗表示をAIメッセージに置き換え
                           setChatMessages(prev => prev.map((msg, idx) => 
                             idx === index
-                              ? { type: 'ai', content: result?.response || '処理が完了しました', result: result }
+                              ? { type: 'ai', content: (result as { response?: string })?.response || '処理が完了しました', result: result }
                               : msg
                           ));
                         }}

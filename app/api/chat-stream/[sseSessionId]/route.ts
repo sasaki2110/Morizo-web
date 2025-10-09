@@ -101,6 +101,7 @@ export async function GET(
   } catch (error) {
     timer();
     logError(LogCategory.API, error, 'chat-stream-api');
+    const { sseSessionId } = await params;
     logApiCall('GET', `/api/chat-stream/${sseSessionId}`, 500, undefined, 
       error instanceof Error ? error.message : '不明なエラー');
     

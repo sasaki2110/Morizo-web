@@ -14,7 +14,6 @@ import {
   SAMPLE_ERROR_RESPONSE,
   SAMPLE_EMPTY_RESPONSE,
   SAMPLE_MALFORMED_RESPONSE,
-  SAMPLE_REAL_URLS_RESPONSE,
   SAMPLE_REAL_MORIZO_RESPONSE
 } from '../../lib/test-samples';
 
@@ -29,7 +28,6 @@ export default function TestPage() {
     { name: 'エラーレスポンス', value: SAMPLE_ERROR_RESPONSE },
     { name: '空のレスポンス', value: SAMPLE_EMPTY_RESPONSE },
     { name: '不完全なレスポンス', value: SAMPLE_MALFORMED_RESPONSE },
-    { name: '実際のURL（画像テスト用）', value: SAMPLE_REAL_URLS_RESPONSE },
     { name: '実際のMorizoAIレスポンス', value: SAMPLE_REAL_MORIZO_RESPONSE },
   ];
 

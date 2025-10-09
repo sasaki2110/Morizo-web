@@ -18,7 +18,7 @@ interface StreamingMessage {
   timestamp: string;
   message: string;
   progress: ProgressData;
-  result?: any;
+  result?: unknown;
   error?: {
     code: string;
     message: string;
@@ -28,7 +28,7 @@ interface StreamingMessage {
 
 interface StreamingProgressProps {
   sseSessionId: string;
-  onComplete: (result?: any) => void;
+  onComplete: (result?: unknown) => void;
   onError: (error: string) => void;
   onTimeout: () => void;
 }

@@ -82,7 +82,7 @@ export async function convertAudioForWhisper(audioBlob: Blob): Promise<File> {
 export function isAudioRecordingSupported(): boolean {
   return !!(
     navigator.mediaDevices &&
-    navigator.mediaDevices.getUserMedia &&
+    typeof navigator.mediaDevices.getUserMedia === 'function' &&
     window.MediaRecorder
   );
 }
