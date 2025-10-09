@@ -39,11 +39,9 @@ interface RecipeGridProps {
 function RecipeGrid({ recipes, category, emoji }: RecipeGridProps) {
   if (recipes.length === 0) {
     return (
-      <div className="col-span-full">
-        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-          <span className="text-4xl mb-2 block">{emoji}</span>
-          <p>このカテゴリにはレシピがありません</p>
-        </div>
+      <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+        <span className="text-4xl mb-2 block">{emoji}</span>
+        <p>このカテゴリにはレシピがありません</p>
       </div>
     );
   }
