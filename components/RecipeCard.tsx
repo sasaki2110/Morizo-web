@@ -144,17 +144,17 @@ function UrlDropdown({ urls, onUrlClick }: UrlDropdownProps) {
 export function RecipeCard({ recipe, onUrlClick }: RecipeCardProps) {
   const { title, urls, emoji } = recipe;
   const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [imageLoading, setImageLoading] = useState(true);
+  const [imageLoading, setImageLoading] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [shouldLoadImages, setShouldLoadImages] = useState(false);
 
   // 複数URLの場合はプルダウンメニューを表示
   const hasMultipleUrls = urls.length > 1;
 
-  // 画像を抽出
+  // 画像を抽出（遅延実行）
   useEffect(() => {
     const loadImage = async () => {
-      if (urls.length === 0) {
-        setImageLoading(false);
+      if (!shouldLoadImages || urls.length === 0) {
         return;
       }
 
@@ -179,10 +179,39 @@ export function RecipeCard({ recipe, onUrlClick }: RecipeCardProps) {
     };
 
     loadImage();
-  }, [urls]);
+  }, [urls, shouldLoadImages]);
+
+  // カードが表示領域に入った時に画像読み込みを開始
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setShouldLoadImages(true);
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.1 }
+    );
+
+    const cardElement = document.querySelector(`[data-recipe-card="${title}"]`);
+    if (cardElement) {
+      observer.observe(cardElement);
+    }
+
+    return () => {
+      if (cardElement) {
+        observer.unobserve(cardElement);
+      }
+    };
+  }, [title]);
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow duration-200 border border-gray-200 dark:border-gray-700">
+    <div 
+      className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow duration-200 border border-gray-200 dark:border-gray-700"
+      data-recipe-card={title}
+    >
       {/* 画像表示（クリック可能） */}
       <div className="mb-4">
         {imageLoading ? (

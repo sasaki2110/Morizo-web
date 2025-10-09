@@ -4,14 +4,23 @@
  */
 
 /**
- * URLから画像を抽出する関数
+ * URLから画像を抽出する関数（タイムアウト付き）
  */
 export async function extractImageFromUrl(url: string): Promise<string | null> {
   try {
     // CORS対応のため、プロキシ経由でアクセス
     const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(url)}`;
     
-    const response = await fetch(proxyUrl);
+    // タイムアウト付きのfetch
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒タイムアウト
+    
+    const response = await fetch(proxyUrl, {
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+    
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -42,7 +51,11 @@ export async function extractImageFromUrl(url: string): Promise<string | null> {
     
     return null;
   } catch (error) {
-    console.warn(`画像抽出に失敗しました (${url}):`, error);
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.warn(`画像抽出がタイムアウトしました (${url})`);
+    } else {
+      console.warn(`画像抽出に失敗しました (${url}):`, error);
+    }
     return null;
   }
 }
@@ -70,18 +83,23 @@ function resolveImageUrl(imageUrl: string, baseUrl: string): string {
 }
 
 /**
- * 複数のURLから画像を並行して抽出
+ * 複数のURLから画像を並行して抽出（並行制限付き）
  */
 export async function extractImagesFromUrls(urls: string[]): Promise<Map<string, string | null>> {
   const results = new Map<string, string | null>();
+  const MAX_CONCURRENT = 3; // 同時実行数を3に制限
   
-  // 並行して画像を抽出（最大5つまで）
-  const promises = urls.slice(0, 5).map(async (url) => {
-    const imageUrl = await extractImageFromUrl(url);
-    results.set(url, imageUrl);
-  });
+  // バッチ処理で並行実行数を制限
+  for (let i = 0; i < urls.length; i += MAX_CONCURRENT) {
+    const batch = urls.slice(i, i + MAX_CONCURRENT);
+    const promises = batch.map(async (url) => {
+      const imageUrl = await extractImageFromUrl(url);
+      results.set(url, imageUrl);
+    });
+    
+    await Promise.allSettled(promises);
+  }
   
-  await Promise.allSettled(promises);
   return results;
 }
 
