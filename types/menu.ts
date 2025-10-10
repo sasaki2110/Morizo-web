@@ -59,11 +59,11 @@ export interface MenuResponse {
 /**
  * レスポンス解析結果
  */
-export interface ParseResult {
+export interface ParseResult<T = MenuResponse> {
   /** 解析成功フラグ */
   success: boolean;
-  /** 解析されたメニューデータ（成功時） */
-  data?: MenuResponse;
+  /** 解析されたデータ（成功時） */
+  data?: T;
   /** エラーメッセージ（失敗時） */
   error?: string;
 }

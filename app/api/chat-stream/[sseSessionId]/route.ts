@@ -35,6 +35,15 @@ export async function GET(
     // バックエンドのSSEエンドポイントにプロキシ
     const backendUrl = `${MORIZO_AI_URL}/chat/stream/${sseSessionId}`;
     ServerLogger.info(LogCategory.API, 'バックエンドSSE接続開始', { backendUrl });
+    console.log('🔍 [SSE API] Backend URL:', backendUrl);
+    console.log('🔍 [SSE API] MORIZO_AI_URL:', MORIZO_AI_URL);
+
+    // バックエンド接続にタイムアウトを設定（10秒）
+    const backendController = new AbortController();
+    const backendTimeoutId = setTimeout(() => {
+      console.log('🔍 [SSE API] Backend connection timeout after 10 seconds');
+      backendController.abort();
+    }, 10000);
 
     const response = await fetch(backendUrl, {
       method: 'GET',
@@ -43,9 +52,12 @@ export async function GET(
         'Accept': 'text/event-stream',
         'Cache-Control': 'no-cache',
       },
-      // 180秒のタイムアウトを設定
-      signal: AbortSignal.timeout(180000),
+      signal: backendController.signal,
     });
+    
+    clearTimeout(backendTimeoutId);
+    console.log('🔍 [SSE API] Backend response status:', response.status);
+    console.log('🔍 [SSE API] Backend response ok:', response.ok);
 
     if (!response.ok) {
       const errorMsg = `バックエンドSSE接続エラー: ${response.status}`;
