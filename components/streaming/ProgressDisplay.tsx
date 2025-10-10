@@ -108,12 +108,6 @@ export function ProgressDisplay({ progress, message, isConnected, error }: Progr
         </div>
       </div>
 
-      {/* タスク情報 */}
-      <div className="mb-4">
-        <div className="text-sm text-gray-600 dark:text-gray-300 text-center">
-          進捗状況：{progress.completed_tasks}/{progress.total_tasks} 完了
-        </div>
-      </div>
 
       {/* 現在のタスク */}
       {progress.current_task && (

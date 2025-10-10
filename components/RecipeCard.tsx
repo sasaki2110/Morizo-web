@@ -5,7 +5,7 @@
  * 個別のレシピ情報を美しく表示するカード（画像表示機能付き）
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { RecipeCardProps, RecipeUrl } from '../types/menu';
 import { extractImageFromUrl, DEFAULT_PLACEHOLDER_IMAGE } from '../lib/image-extractor';
 
@@ -147,6 +147,7 @@ export function RecipeCard({ recipe, onUrlClick }: RecipeCardProps) {
   const [imageLoading, setImageLoading] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [shouldLoadImages, setShouldLoadImages] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   // 複数URLの場合はプルダウンメニューを表示
   const hasMultipleUrls = urls.length > 1;
@@ -195,7 +196,7 @@ export function RecipeCard({ recipe, onUrlClick }: RecipeCardProps) {
       { threshold: 0.1 }
     );
 
-    const cardElement = document.querySelector(`[data-recipe-card="${title}"]`);
+    const cardElement = cardRef.current;
     if (cardElement) {
       observer.observe(cardElement);
     }
@@ -209,6 +210,7 @@ export function RecipeCard({ recipe, onUrlClick }: RecipeCardProps) {
 
   return (
     <div 
+      ref={cardRef}
       className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow duration-200 border border-gray-200 dark:border-gray-700"
       data-recipe-card={title}
     >

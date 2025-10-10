@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
 import AuthWrapper from '@/components/AuthWrapper';
@@ -17,39 +17,21 @@ import { isMenuResponse, parseMenuResponseUnified } from '../lib/menu-parser';
 import { RecipeModalResponsive } from '../components/RecipeModal';
 
 export default function Home() {
-  const [apiResponse, setApiResponse] = useState<string>('');
-  const [isLoading, setIsLoading] = useState(false);
   const [chatMessages, setChatMessages] = useState<Array<{type: 'user' | 'ai' | 'streaming', content: string, sseSessionId?: string, result?: unknown}>>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
-  const [authToken, setAuthToken] = useState<string>('');
-  const [isTokenLoading, setIsTokenLoading] = useState(false);
   const [textMessage, setTextMessage] = useState<string>('');
   const [isTextChatLoading, setIsTextChatLoading] = useState(false);
-  const [isCopied, setIsCopied] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalResponse, setModalResponse] = useState('');
   const [modalResult, setModalResult] = useState<unknown>(undefined);
+  const chatEndRef = useRef<HTMLDivElement>(null);
   const { session } = useAuth();
 
-  const testApi = async () => {
-    setIsLoading(true);
-    setApiResponse('');
-    
-    try {
-      const response = await authenticatedFetch('/api/test', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      const data = await response.json();
-      setApiResponse(JSON.stringify(data, null, 2));
-    } catch (error) {
-      setApiResponse(`エラー: ${error}`);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // チャットメッセージ更新時の自動スクロール
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
+
 
   const handleVoiceTranscription = async (text: string) => {
     setIsChatLoading(true);
@@ -110,38 +92,6 @@ export default function Home() {
     }]);
   };
 
-  const getAuthToken = async () => {
-    setIsTokenLoading(true);
-    setAuthToken('');
-    
-    try {
-      const token = await getCurrentAuthToken();
-      
-      if (!token) {
-        setAuthToken('認証トークンが取得できません');
-        return;
-      }
-
-      setAuthToken(token);
-    } catch (error) {
-      setAuthToken(`エラー: ${error}`);
-    } finally {
-      setIsTokenLoading(false);
-    }
-  };
-
-  const copyTokenToClipboard = async () => {
-    try {
-      await navigator.clipboard.writeText(authToken);
-      setIsCopied(true);
-      // 2秒後に元の状態に戻す
-      setTimeout(() => {
-        setIsCopied(false);
-      }, 2000);
-    } catch (error) {
-      console.error('コピーに失敗しました:', error);
-    }
-  };
 
   const sendTextMessage = async () => {
     if (!textMessage.trim()) return;
@@ -232,7 +182,7 @@ export default function Home() {
               <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4">
                 チャット履歴
               </h3>
-              <div className="space-y-4 max-h-96 overflow-y-auto">
+              <div className="space-y-4 max-h-[60vh] overflow-y-auto">
                 {chatMessages.map((message, index) => (
                   <div key={index}>
                     {/* ユーザーメッセージ */}
@@ -274,7 +224,7 @@ export default function Home() {
                                       className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 font-medium flex items-center space-x-2"
                                     >
                                       <span>🍽️</span>
-                                      <span>レシピを美しく表示</span>
+                                      <span>レシピを表示</span>
                                     </button>
                                   </div>
                                 </div>
@@ -294,7 +244,7 @@ export default function Home() {
                                       className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 font-medium flex items-center space-x-2"
                                     >
                                       <span>🍽️</span>
-                                      <span>レシピを美しく表示</span>
+                                      <span>レシピを表示</span>
                                     </button>
                                   </div>
                                 </div>
@@ -350,6 +300,7 @@ export default function Home() {
                     )}
                   </div>
                 ))}
+                <div ref={chatEndRef} />
               </div>
             </div>
           )}
@@ -407,74 +358,6 @@ export default function Home() {
           </div>
 
           
-          {/* 認証トークン表示セクション */}
-          <div className="mt-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 text-center">
-            <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-6">
-              認証トークン
-            </h2>
-            
-            <button
-              onClick={getAuthToken}
-              disabled={isTokenLoading}
-              className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 mb-4"
-            >
-              {isTokenLoading ? 'トークン取得中...' : '認証トークンを取得'}
-            </button>
-            
-            {authToken && (
-              <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-4 text-left">
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    アクセストークン:
-                  </h3>
-                  <button
-                    onClick={copyTokenToClipboard}
-                    className={`text-xs px-2 py-1 rounded transition-colors duration-200 ${
-                      isCopied 
-                        ? 'bg-green-500 text-white' 
-                        : 'bg-blue-500 hover:bg-blue-600 text-white'
-                    }`}
-                  >
-                    {isCopied ? 'Copied' : 'コピー'}
-                  </button>
-                </div>
-                <div className="bg-white dark:bg-gray-800 rounded p-3 border">
-                  <pre className="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap break-all overflow-auto max-h-32">
-                    {authToken}
-                  </pre>
-                </div>
-                <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                  curl テスト用: <code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">Authorization: Bearer {authToken.substring(0, 20)}...</code>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* API テストセクション（既存） */}
-          <div className="mt-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 text-center">
-            <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-6">
-              API テスト
-            </h2>
-            
-            <button
-              onClick={testApi}
-              disabled={isLoading}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 mb-6"
-            >
-              {isLoading ? 'API確認中...' : 'API確認'}
-            </button>
-            
-            {apiResponse && (
-              <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-4 text-left">
-                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  API レスポンス:
-                </h3>
-                <pre className="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap overflow-auto">
-                  {apiResponse}
-                </pre>
-              </div>
-            )}
-          </div>
         </div>
       </div>
       

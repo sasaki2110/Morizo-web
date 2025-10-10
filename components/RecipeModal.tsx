@@ -147,7 +147,7 @@ export function RecipeModalMobile({ isOpen, onClose, response, result, className
       />
       
       {/* モーダルコンテンツ（フルスクリーン） */}
-      <div className="relative flex-1 bg-white dark:bg-gray-800 flex flex-col">
+      <div className="relative flex-1 bg-white dark:bg-gray-800 flex flex-col max-h-screen">
         {/* ヘッダー */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-xl font-bold text-gray-800 dark:text-white">
@@ -175,7 +175,7 @@ export function RecipeModalMobile({ isOpen, onClose, response, result, className
         </div>
 
         {/* コンテンツエリア */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto min-h-0">
           <div className="p-4">
             <MenuViewer response={response} result={result} />
           </div>
