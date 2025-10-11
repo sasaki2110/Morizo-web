@@ -101,6 +101,10 @@ export default function ChatSection({
     }
   };
 
+  const clearChatHistory = () => {
+    setChatMessages([]);
+  };
+
   return (
     <>
       {/* チャット履歴 */}
@@ -228,6 +232,15 @@ export default function ChatSection({
               </div>
             ))}
             <div ref={chatEndRef} />
+          </div>
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={clearChatHistory}
+              className="px-3 py-1 text-xs bg-orange-100 hover:bg-orange-200 text-orange-700 rounded-md transition-colors duration-200"
+              title="チャット履歴をクリア"
+            >
+              🗑️ クリア
+            </button>
           </div>
         </div>
       )}
