@@ -12,13 +12,15 @@ export default function StreamingProgress({
   sseSessionId,
   onComplete,
   onError,
-  onTimeout
+  onTimeout,
+  onProgress
 }: StreamingProgressProps) {
   const state = useStreamingConnection({
     sseSessionId,
     onComplete,
     onError,
-    onTimeout
+    onTimeout,
+    onProgress
   });
 
   return (

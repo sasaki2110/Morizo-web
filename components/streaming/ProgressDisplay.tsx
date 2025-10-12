@@ -94,11 +94,16 @@ export function ProgressDisplay({ progress, message, isConnected, error }: Progr
         </div>
       </div>
 
-      {/* 進捗バー */}
+      {/* タスク数と進捗バー */}
       <div className="mb-4">
         <div className="flex justify-between text-sm text-gray-600 dark:text-gray-300 mb-2">
           <span>進捗</span>
-          <span>{progress.progress_percentage}%</span>
+          <span>
+            {progress.total_tasks === 0 
+              ? `初期化中 (${progress.progress_percentage}%)`
+              : `${progress.completed_tasks}/${progress.total_tasks} 完了 (${progress.progress_percentage}%)`
+            }
+          </span>
         </div>
         <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
           <div 

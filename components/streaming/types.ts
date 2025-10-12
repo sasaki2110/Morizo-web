@@ -31,6 +31,7 @@ export interface StreamingProgressProps {
   onComplete: (result?: unknown) => void;
   onError: (error: string) => void;
   onTimeout: () => void;
+  onProgress?: (progress: ProgressData) => void;
 }
 
 export type AnimationStage = 'gradient' | 'pulse' | 'sparkle';

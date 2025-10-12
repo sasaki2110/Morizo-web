@@ -5,20 +5,22 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { getCurrentAuthToken } from '@/lib/auth';
-import { StreamingMessage, StreamingState } from './types';
+import { StreamingMessage, StreamingState, ProgressData } from './types';
 
 interface UseStreamingConnectionProps {
   sseSessionId: string;
   onComplete: (result?: unknown) => void;
   onError: (error: string) => void;
   onTimeout: () => void;
+  onProgress?: (progress: ProgressData) => void;
 }
 
 export function useStreamingConnection({
   sseSessionId,
   onComplete,
   onError,
-  onTimeout
+  onTimeout,
+  onProgress
 }: UseStreamingConnectionProps): StreamingState {
   const [state, setState] = useState<StreamingState>({
     progress: {
@@ -148,6 +150,8 @@ export function useStreamingConnection({
                             progress: data.progress,
                             message: data.message || ''
                           }));
+                          // 進捗更新時にコールバックを実行
+                          onProgress?.(data.progress);
                         }
                         break;
 

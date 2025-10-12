@@ -35,7 +35,11 @@ export default function ChatSection({
 
   // チャットメッセージ更新時の自動スクロール
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    chatEndRef.current?.scrollIntoView({ 
+      behavior: 'smooth', 
+      block: 'end',
+      inline: 'nearest' 
+    });
   }, [chatMessages]);
 
   const sendTextMessage = async () => {
@@ -226,6 +230,14 @@ export default function ChatSection({
                           ? { type: 'ai', content: '処理がタイムアウトしました。しばらく時間をおいて再試行してください。' }
                           : msg
                       ));
+                    }}
+                    onProgress={() => {
+                      // 進捗更新時に自動スクロールを実行
+                      chatEndRef.current?.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'end',
+                        inline: 'nearest' 
+                      });
                     }}
                   />
                 )}
