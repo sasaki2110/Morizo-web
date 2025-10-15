@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
   try {
     ServerLogger.info(LogCategory.API, 'チャットAPI呼び出し開始');
     
-    const { message, sse_session_id } = await request.json();
+    const { message, sse_session_id, confirm } = await request.json();
     ServerLogger.debug(LogCategory.API, 'リクエストボディ解析完了', { 
       messageLength: message?.length,
       sseSessionId: sse_session_id 
@@ -65,7 +65,8 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         message: message,
-        sse_session_id: sse_session_id
+        sse_session_id: sse_session_id,
+        confirm: confirm || false
       }),
     }, token);
 

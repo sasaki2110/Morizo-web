@@ -157,6 +157,12 @@ export function useStreamingConnection({
 
                       case 'complete':
                         if (data.result) {
+                          // デバッグログ: 確認情報の存在をチェック
+                          console.log('[DEBUG] SSE complete event received:', {
+                            requires_confirmation: data.result.requires_confirmation,
+                            confirmation_session_id: data.result.confirmation_session_id
+                          });
+                          
                           lastValidResultRef.current = data.result;
                           setState(prev => ({
                             ...prev,

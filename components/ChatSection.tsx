@@ -13,6 +13,7 @@ interface ChatMessage {
   content: string;
   sseSessionId?: string;
   result?: unknown;
+  requiresConfirmation?: boolean;
 }
 
 interface ChatSectionProps {
@@ -31,6 +32,8 @@ export default function ChatSection({
   openRecipeModal
 }: ChatSectionProps) {
   const [textMessage, setTextMessage] = useState<string>('');
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState<boolean>(false);
+  const [confirmationSessionId, setConfirmationSessionId] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // チャットメッセージ更新時の自動スクロール
@@ -47,13 +50,36 @@ export default function ChatSection({
 
     setIsTextChatLoading(true);
     
+    // デバッグログ: 状態を確認
+    console.log('[DEBUG] awaitingConfirmation:', awaitingConfirmation);
+    console.log('[DEBUG] confirmationSessionId:', confirmationSessionId);
+    
     // ユーザーメッセージを追加
     setChatMessages(prev => [...prev, { type: 'user', content: textMessage }]);
     const currentMessage = textMessage;
     setTextMessage(''); // 入力フィールドをクリア
     
-    // SSEセッションIDを生成
-    const sseSessionId = generateSSESessionId();
+    // SSEセッションIDの決定と送信時の確認応答フラグを記録
+    let sseSessionId: string;
+    const isConfirmationRequest = awaitingConfirmation && !!confirmationSessionId;
+
+    if (isConfirmationRequest) {
+      // 曖昧性確認中の場合は既存のセッションIDを使用
+      sseSessionId = confirmationSessionId;
+      console.log('[DEBUG] Using existing session ID:', sseSessionId);
+    } else {
+      // 新規リクエストの場合は新しいセッションIDを生成
+      sseSessionId = generateSSESessionId();
+      console.log('[DEBUG] Generated new session ID:', sseSessionId);
+    }
+    
+    console.log('[DEBUG] Sending request with:', {
+      message: currentMessage,
+      sse_session_id: sseSessionId,
+      confirm: isConfirmationRequest,
+      awaitingConfirmation: awaitingConfirmation,
+      confirmationSessionId: confirmationSessionId
+    });
     
     // ストリーミング進捗表示を追加
     setChatMessages(prev => [...prev, { 
@@ -70,7 +96,8 @@ export default function ChatSection({
         },
         body: JSON.stringify({ 
           message: currentMessage,
-          sse_session_id: sseSessionId 
+          sse_session_id: sseSessionId,
+          confirm: isConfirmationRequest
         }),
       });
 
@@ -80,12 +107,20 @@ export default function ChatSection({
 
       const data = await response.json();
       
-      // ストリーミング進捗表示をAIレスポンスに置き換え
-      setChatMessages(prev => prev.map((msg, index) => 
-        msg.type === 'streaming' && msg.sseSessionId === sseSessionId
-          ? { type: 'ai', content: data.response, result: data }
-          : msg
-      ));
+      console.log('[DEBUG] HTTP Response received (for reference only):', {
+        success: data.success,
+        has_response: !!data.response
+      });
+      
+      // 注意: 曖昧性確認の状態更新はSSEのStreamingProgressで処理されます
+      // HTTPレスポンスでは状態を更新しません（SSEが優先）
+      
+      // 確認応答を送信した場合のみ、状態をリセット
+      if (isConfirmationRequest && data.success && !data.requires_confirmation) {
+        console.log('[DEBUG] Confirmation response completed, resetting confirmation state');
+        setAwaitingConfirmation(false);
+        setConfirmationSessionId(null);
+      }
     } catch (error) {
       // エラー時はストリーミング進捗表示をエラーメッセージに置き換え
       setChatMessages(prev => prev.map((msg, index) => 
@@ -93,6 +128,10 @@ export default function ChatSection({
           ? { type: 'ai', content: `エラー: ${error instanceof Error ? error.message : '不明なエラー'}` }
           : msg
       ));
+      
+      // エラー時は確認状態をリセット
+      setAwaitingConfirmation(false);
+      setConfirmationSessionId(null);
     } finally {
       setIsTextChatLoading(false);
     }
@@ -204,16 +243,57 @@ export default function ChatSection({
                   <StreamingProgress
                     sseSessionId={message.sseSessionId}
                     onComplete={(result) => {
-                      // 複数completeメッセージの重複処理防止
-                      // 同じSSEセッションでの重複処理を避けるため、一度だけ処理
-                      const resultObj = result as { response?: string; menu_data?: unknown };
+                      console.log('[DEBUG] StreamingProgress onComplete called:', result);
                       
-                      // ストリーミング進捗表示をAIメッセージに置き換え（1回のみ）
-                      setChatMessages(prev => prev.map((msg, idx) => 
-                        idx === index
-                          ? { type: 'ai', content: resultObj?.response || '処理が完了しました', result: result }
-                          : msg
-                      ));
+                      // resultから確認情報を取得
+                      const typedResult = result as {
+                        response: string;
+                        menu_data?: unknown;
+                        requires_confirmation?: boolean;
+                        confirmation_session_id?: string;
+                      } | undefined;
+                      
+                      console.log('[DEBUG] Checking requires_confirmation:', typedResult?.requires_confirmation);
+                      console.log('[DEBUG] Checking confirmation_session_id:', typedResult?.confirmation_session_id);
+                      
+                      // 曖昧性確認が必要な場合
+                      if (typedResult?.requires_confirmation && typedResult?.confirmation_session_id) {
+                        console.log('[DEBUG] Setting awaitingConfirmation from SSE');
+                        console.log('[DEBUG] requires_confirmation:', typedResult.requires_confirmation);
+                        console.log('[DEBUG] confirmation_session_id:', typedResult.confirmation_session_id);
+                        setAwaitingConfirmation(true);
+                        setConfirmationSessionId(typedResult.confirmation_session_id);
+                        console.log('[DEBUG] State set - awaitingConfirmation: true, confirmationSessionId:', typedResult.confirmation_session_id);
+                        
+                        // ストリーミング進捗表示をAIレスポンスに置き換え（曖昧性確認フラグ付き）
+                        setChatMessages(prev => 
+                          prev.map((msg, idx) => 
+                            idx === index
+                              ? { 
+                                  type: 'ai', 
+                                  content: typedResult.response, 
+                                  result: typedResult,
+                                  requiresConfirmation: true 
+                                }
+                              : msg
+                          )
+                        );
+                        
+                        // 曖昧性確認時はローディング状態を維持（ユーザー入力を受け付ける）
+                        setIsTextChatLoading(false);
+                      } else {
+                        // 通常の完了処理
+                        setChatMessages(prev => 
+                          prev.map((msg, idx) => 
+                            idx === index
+                              ? { type: 'ai', content: typedResult?.response || '処理が完了しました', result: typedResult }
+                              : msg
+                          )
+                        );
+                        
+                        // 通常の完了時のみローディング終了
+                        setIsTextChatLoading(false);
+                      }
                     }}
                     onError={(error) => {
                       // エラー時はエラーメッセージに置き換え

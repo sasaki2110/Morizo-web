@@ -18,7 +18,12 @@ export interface StreamingMessage {
   timestamp: string;
   message: string;
   progress: ProgressData;
-  result?: unknown;
+  result?: {
+    response: string;
+    menu_data?: unknown;
+    requires_confirmation?: boolean;
+    confirmation_session_id?: string;
+  };
   error?: {
     code: string;
     message: string;

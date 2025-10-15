@@ -52,6 +52,11 @@ export async function authenticatedFetch(url: string, options: RequestInit = {})
   const timeoutId = setTimeout(() => controller.abort(), 180000); // 180秒 = 3分
   
   try {
+    // デバッグログ: 送信するリクエストボディを確認
+    if (options.body) {
+      console.log('[DEBUG] authenticatedFetch sending body:', options.body);
+    }
+    
     const response = await fetch(url, {
       ...options,
       headers,
