@@ -76,6 +76,12 @@ export interface RecipeCardProps {
   recipe: RecipeCard;
   /** URLクリック時のコールバック */
   onUrlClick?: (url: string) => void;
+  /** 選択状態 */
+  isSelected?: boolean;
+  /** 選択時のコールバック */
+  onSelect?: (recipe: RecipeCard) => void;
+  /** 採用済みかどうか */
+  isAdopted?: boolean;
 }
 
 /**
@@ -88,6 +94,10 @@ export interface MenuViewerProps {
   result?: unknown;
   /** カスタムクラス名 */
   className?: string;
+  /** 選択状態の管理（オプション） */
+  selectedRecipes?: SelectedRecipes;
+  /** レシピ選択時のコールバック（オプション） */
+  onRecipeSelect?: (recipe: RecipeCard, category: 'main_dish' | 'side_dish' | 'soup', section: 'innovative' | 'traditional') => void;
 }
 
 /**
@@ -137,3 +147,35 @@ export const CATEGORY_EMOJI_MAP: Record<string, string> = {
   side: '🥗',
   soup: '🍵',
 };
+
+/**
+ * レシピ採用リクエストの型定義
+ */
+export interface RecipeAdoptionRequest {
+  recipes: RecipeAdoptionItem[];
+}
+
+export interface RecipeAdoptionItem {
+  title: string;
+  category: "main_dish" | "side_dish" | "soup";
+  menu_source: "llm_menu" | "rag_menu" | "manual";
+  url?: string;
+}
+
+/**
+ * 選択状態の管理用
+ */
+export interface SelectedRecipes {
+  main_dish: RecipeCard | null;
+  side_dish: RecipeCard | null;
+  soup: RecipeCard | null;
+}
+
+/**
+ * レシピ選択情報（セクション情報付き）
+ */
+export interface RecipeSelection {
+  recipe: RecipeCard;
+  category: 'main_dish' | 'side_dish' | 'soup';
+  section: 'innovative' | 'traditional';
+}

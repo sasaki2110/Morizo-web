@@ -9,6 +9,7 @@ import React, { useMemo, useState } from 'react';
 import { MenuViewerProps, MenuResponse, RecipeCard } from '../types/menu';
 import { parseMenuResponse, isMenuResponse, parseMenuResponseUnified } from '../lib/menu-parser';
 import { RecipeCard as RecipeCardComponent, RecipeCardSkeleton, RecipeCardError } from './RecipeCard';
+import { isRecipeAdopted } from '../lib/recipe-api';
 
 /**
  * セクションタイトルコンポーネント
@@ -34,9 +35,12 @@ interface RecipeGridProps {
   recipes: RecipeCard[];
   category: string;
   emoji: string;
+  section: 'innovative' | 'traditional';
+  selectedRecipes?: { main_dish: RecipeCard | null; side_dish: RecipeCard | null; soup: RecipeCard | null };
+  onRecipeSelect?: (recipe: RecipeCard, category: 'main_dish' | 'side_dish' | 'soup', section: 'innovative' | 'traditional') => void;
 }
 
-function RecipeGrid({ recipes, category, emoji }: RecipeGridProps) {
+function RecipeGrid({ recipes, category, emoji, section, selectedRecipes, onRecipeSelect }: RecipeGridProps) {
   if (recipes.length === 0) {
     return (
       <div className="text-center py-8 text-gray-500 dark:text-gray-400">
@@ -46,15 +50,32 @@ function RecipeGrid({ recipes, category, emoji }: RecipeGridProps) {
     );
   }
 
+  // カテゴリマッピング
+  const categoryMap: Record<string, 'main_dish' | 'side_dish' | 'soup'> = {
+    'main': 'main_dish',
+    'side': 'side_dish',
+    'soup': 'soup'
+  };
+
+  const apiCategory = categoryMap[category] || 'main_dish';
+
   return (
     <>
-      {recipes.map((recipe, index) => (
-        <div key={`${category}-${index}`}>
-          <RecipeCardComponent
-            recipe={recipe}
-          />
-        </div>
-      ))}
+      {recipes.map((recipe, index) => {
+        const isSelected = selectedRecipes?.[apiCategory]?.title === recipe.title;
+        const isAdopted = isRecipeAdopted(recipe.title);
+        
+        return (
+          <div key={`${category}-${index}`}>
+            <RecipeCardComponent
+              recipe={recipe}
+              isSelected={isSelected}
+              onSelect={onRecipeSelect ? (recipe) => onRecipeSelect(recipe, apiCategory, section) : undefined}
+              isAdopted={isAdopted}
+            />
+          </div>
+        );
+      })}
     </>
   );
 }
@@ -96,7 +117,7 @@ function getTotalRecipeCount(recipes: { main: RecipeCard[]; side: RecipeCard[]; 
 /**
  * メニュービューアーのメインコンポーネント
  */
-export function MenuViewer({ response, result, className = '' }: MenuViewerProps) {
+export function MenuViewer({ response, result, className = '', selectedRecipes, onRecipeSelect }: MenuViewerProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [parseError, setParseError] = useState<string | null>(null);
 
@@ -165,9 +186,30 @@ export function MenuViewer({ response, result, className = '' }: MenuViewerProps
         <div className="mb-8">
           <SectionTitle title={innovative} />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <RecipeGrid recipes={innovativeRecipes.main} category="main" emoji="🍖" />
-            <RecipeGrid recipes={innovativeRecipes.side} category="side" emoji="🥗" />
-            <RecipeGrid recipes={innovativeRecipes.soup} category="soup" emoji="🍵" />
+            <RecipeGrid 
+              recipes={innovativeRecipes.main} 
+              category="main" 
+              emoji="🍖" 
+              section="innovative"
+              selectedRecipes={selectedRecipes}
+              onRecipeSelect={onRecipeSelect}
+            />
+            <RecipeGrid 
+              recipes={innovativeRecipes.side} 
+              category="side" 
+              emoji="🥗" 
+              section="innovative"
+              selectedRecipes={selectedRecipes}
+              onRecipeSelect={onRecipeSelect}
+            />
+            <RecipeGrid 
+              recipes={innovativeRecipes.soup} 
+              category="soup" 
+              emoji="🍵" 
+              section="innovative"
+              selectedRecipes={selectedRecipes}
+              onRecipeSelect={onRecipeSelect}
+            />
           </div>
         </div>
       )}
@@ -177,9 +219,30 @@ export function MenuViewer({ response, result, className = '' }: MenuViewerProps
         <div className="mb-8">
           <SectionTitle title={traditional} />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <RecipeGrid recipes={traditionalRecipes.main} category="main" emoji="🍖" />
-            <RecipeGrid recipes={traditionalRecipes.side} category="side" emoji="🥗" />
-            <RecipeGrid recipes={traditionalRecipes.soup} category="soup" emoji="🍵" />
+            <RecipeGrid 
+              recipes={traditionalRecipes.main} 
+              category="main" 
+              emoji="🍖" 
+              section="traditional"
+              selectedRecipes={selectedRecipes}
+              onRecipeSelect={onRecipeSelect}
+            />
+            <RecipeGrid 
+              recipes={traditionalRecipes.side} 
+              category="side" 
+              emoji="🥗" 
+              section="traditional"
+              selectedRecipes={selectedRecipes}
+              onRecipeSelect={onRecipeSelect}
+            />
+            <RecipeGrid 
+              recipes={traditionalRecipes.soup} 
+              category="soup" 
+              emoji="🍵" 
+              section="traditional"
+              selectedRecipes={selectedRecipes}
+              onRecipeSelect={onRecipeSelect}
+            />
           </div>
         </div>
       )}

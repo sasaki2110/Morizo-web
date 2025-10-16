@@ -6,25 +6,62 @@
  */
 
 import React from 'react';
-import { RecipeCardProps } from '../types/menu';
+import { RecipeCardProps, RecipeCard as RecipeCardType } from '../types/menu';
 import ImageHandler from './ImageHandler';
 import UrlHandler from './UrlHandler';
+import { isRecipeAdopted } from '../lib/recipe-api';
 
 
 /**
  * レシピカードコンポーネント
  */
-export function RecipeCard({ recipe, onUrlClick }: RecipeCardProps) {
+export function RecipeCard({ recipe, onUrlClick, isSelected = false, onSelect, isAdopted = false }: RecipeCardProps) {
   const { title, urls, emoji } = recipe;
 
   // 複数URLの場合はプルダウンメニューを表示
   const hasMultipleUrls = urls.length > 1;
 
+  // 採用済みかどうかをチェック（propsで渡されない場合は自動判定）
+  const adopted = isAdopted || isRecipeAdopted(title);
+
+  // チェックボックスの変更ハンドラー
+  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.stopPropagation();
+    if (onSelect) {
+      onSelect(recipe);
+    }
+  };
+
   return (
     <div 
-      className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow duration-200 border border-gray-200 dark:border-gray-700"
+      className={`relative bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow duration-200 border ${
+        isSelected 
+          ? 'border-blue-500 ring-2 ring-blue-200 dark:ring-blue-800' 
+          : 'border-gray-200 dark:border-gray-700'
+      }`}
       data-recipe-card={title}
     >
+      {/* チェックボックス（左上） */}
+      {onSelect && (
+        <div className="absolute top-4 left-4 z-10">
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={handleCheckboxChange}
+            className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 cursor-pointer"
+          />
+        </div>
+      )}
+
+      {/* 採用済みバッジ（右上） */}
+      {adopted && (
+        <div className="absolute top-4 right-4">
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+            ✓ 採用済み
+          </span>
+        </div>
+      )}
+
       {/* 画像表示（クリック可能） */}
       <ImageHandler
         urls={urls}
