@@ -8,7 +8,7 @@ const MORIZO_AI_URL = 'http://localhost:8000';
 function setCorsHeaders(response: NextResponse) {
   response.headers.set('Access-Control-Allow-Origin', '*');
   response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cache-Control');
   response.headers.set('Access-Control-Max-Age', '86400');
   return response;
 }
