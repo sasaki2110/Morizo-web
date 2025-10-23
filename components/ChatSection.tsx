@@ -4,9 +4,11 @@ import { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
 import StreamingProgress from '@/components/StreamingProgress';
+import SelectionOptions from '@/components/SelectionOptions';
 import { authenticatedFetch } from '@/lib/auth';
 import { generateSSESessionId } from '@/lib/session-manager';
 import { isMenuResponse, parseMenuResponseUnified } from '@/lib/menu-parser';
+import { RecipeCandidate } from '@/types/menu';
 
 interface ChatMessage {
   type: 'user' | 'ai' | 'streaming';
@@ -14,6 +16,9 @@ interface ChatMessage {
   sseSessionId?: string;
   result?: unknown;
   requiresConfirmation?: boolean;
+  requiresSelection?: boolean;
+  candidates?: RecipeCandidate[];
+  taskId?: string;
 }
 
 interface ChatSectionProps {
@@ -34,6 +39,7 @@ export default function ChatSection({
   const [textMessage, setTextMessage] = useState<string>('');
   const [awaitingConfirmation, setAwaitingConfirmation] = useState<boolean>(false);
   const [confirmationSessionId, setConfirmationSessionId] = useState<string | null>(null);
+  const [awaitingSelection, setAwaitingSelection] = useState<boolean>(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // チャットメッセージ更新時の自動スクロール
@@ -137,6 +143,17 @@ export default function ChatSection({
     }
   };
 
+  const handleSelection = (selection: number) => {
+    // 選択完了後の処理
+    setAwaitingSelection(false);
+    
+    // 選択結果メッセージを追加
+    setChatMessages(prev => [...prev, {
+      type: 'user',
+      content: `${selection}番を選択しました`
+    }]);
+  };
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -146,6 +163,9 @@ export default function ChatSection({
 
   const clearChatHistory = () => {
     setChatMessages([]);
+    setAwaitingConfirmation(false);
+    setConfirmationSessionId(null);
+    setAwaitingSelection(false);
   };
 
   return (
@@ -238,6 +258,19 @@ export default function ChatSection({
                   </div>
                 )}
                 
+                {/* 選択UI表示 */}
+                {message.type === 'ai' && message.requiresSelection && message.candidates && message.taskId && (
+                  <div className="ml-8">
+                    <SelectionOptions
+                      candidates={message.candidates}
+                      onSelect={handleSelection}
+                      taskId={message.taskId}
+                      sseSessionId={message.sseSessionId || 'unknown'}
+                      isLoading={isTextChatLoading}
+                    />
+                  </div>
+                )}
+                
                 {/* ストリーミング進捗表示 */}
                 {message.type === 'streaming' && message.sseSessionId && (
                   <StreamingProgress
@@ -248,16 +281,48 @@ export default function ChatSection({
                       // resultから確認情報を取得
                       const typedResult = result as {
                         response: string;
-                        menu_data?: unknown;
+                        menu_data?: {
+                          requires_selection?: boolean;
+                          candidates?: RecipeCandidate[];
+                          task_id?: string;
+                          message?: string;
+                        };
                         requires_confirmation?: boolean;
                         confirmation_session_id?: string;
                       } | undefined;
                       
                       console.log('[DEBUG] Checking requires_confirmation:', typedResult?.requires_confirmation);
                       console.log('[DEBUG] Checking confirmation_session_id:', typedResult?.confirmation_session_id);
+                      console.log('[DEBUG] Checking menu_data:', typedResult?.menu_data);
                       
-                      // 曖昧性確認が必要な場合
-                      if (typedResult?.requires_confirmation && typedResult?.confirmation_session_id) {
+                      // 選択要求が必要な場合
+                      if (typedResult?.menu_data?.requires_selection && typedResult?.menu_data?.candidates && typedResult?.menu_data?.task_id) {
+                        console.log('[DEBUG] Setting awaitingSelection from SSE');
+                        console.log('[DEBUG] requires_selection:', typedResult.menu_data?.requires_selection);
+                        console.log('[DEBUG] candidates:', typedResult.menu_data?.candidates);
+                        console.log('[DEBUG] task_id:', typedResult.menu_data?.task_id);
+                        setAwaitingSelection(true);
+                        
+                        // ストリーミング進捗表示をAIレスポンスに置き換え（選択要求フラグ付き）
+                        setChatMessages(prev => 
+                          prev.map((msg, idx) => 
+                            idx === index
+                              ? { 
+                                  type: 'ai', 
+                                  content: typedResult.response, 
+                                  result: typedResult,
+                                  requiresSelection: true,
+                                  candidates: typedResult.menu_data?.candidates,
+                                  taskId: typedResult.menu_data?.task_id,
+                                  sseSessionId: message.sseSessionId
+                                }
+                              : msg
+                          )
+                        );
+                        
+                        // 選択要求時はローディング状態を維持（ユーザー入力を受け付ける）
+                        setIsTextChatLoading(false);
+                      } else if (typedResult?.requires_confirmation && typedResult?.confirmation_session_id) {
                         console.log('[DEBUG] Setting awaitingConfirmation from SSE');
                         console.log('[DEBUG] requires_confirmation:', typedResult.requires_confirmation);
                         console.log('[DEBUG] confirmation_session_id:', typedResult.confirmation_session_id);
@@ -352,20 +417,26 @@ export default function ChatSection({
               onKeyPress={handleKeyPress}
               placeholder="メッセージを入力してください..."
               className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-              disabled={isTextChatLoading}
+              disabled={isTextChatLoading || awaitingSelection}
             />
             <button
               onClick={sendTextMessage}
-              disabled={isTextChatLoading || !textMessage.trim()}
+              disabled={isTextChatLoading || !textMessage.trim() || awaitingSelection}
               className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold rounded-lg transition-colors duration-200"
             >
-              {isTextChatLoading ? '送信中...' : '送信'}
+              {isTextChatLoading ? '送信中...' : awaitingSelection ? '選択中...' : '送信'}
             </button>
           </div>
           
           {isTextChatLoading && (
             <div className="text-sm text-gray-600 dark:text-gray-400 text-center">
               Morizo AIが応答を生成中...
+            </div>
+          )}
+          
+          {awaitingSelection && (
+            <div className="text-sm text-blue-600 dark:text-blue-400 text-center">
+              主菜を選択してください...
             </div>
           )}
         </div>

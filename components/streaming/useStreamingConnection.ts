@@ -256,7 +256,7 @@ export function useStreamingConnection({
         abortControllerRef.current.abort();
       }
     };
-  }, [sseSessionId, onComplete, onError, onTimeout]);
+  }, [sseSessionId, onComplete, onError, onTimeout, onProgress]);
 
   return state;
 }

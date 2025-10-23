@@ -179,3 +179,45 @@ export interface RecipeSelection {
   category: 'main_dish' | 'side_dish' | 'soup';
   section: 'innovative' | 'traditional';
 }
+
+/**
+ * 主菜候補の型定義（Phase 2B用）
+ */
+export interface RecipeCandidate {
+  /** レシピのタイトル */
+  title: string;
+  /** 食材リスト */
+  ingredients: string[];
+  /** 調理時間（オプション） */
+  cooking_time?: string;
+  /** 説明（オプション） */
+  description?: string;
+  /** カテゴリ */
+  category?: 'main' | 'sub' | 'soup';
+  /** ソース（LLM/RAG/Web） */
+  source?: 'llm' | 'rag' | 'web';
+}
+
+/**
+ * 選択リクエストの型定義
+ */
+export interface SelectionRequest {
+  /** タスクID */
+  task_id: string;
+  /** 選択番号（1-5） */
+  selection: number;
+}
+
+/**
+ * 選択レスポンスの型定義
+ */
+export interface SelectionResponse {
+  /** 成功フラグ */
+  success: boolean;
+  /** メッセージ（オプション） */
+  message?: string;
+  /** エラーメッセージ（オプション） */
+  error?: string;
+  /** 次のステップ（オプション） */
+  next_step?: string;
+}
