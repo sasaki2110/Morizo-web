@@ -170,6 +170,17 @@ export default function ChatSection({
     setIsListModalOpen(true);
   };
 
+  const handleRequestMore = (sseSessionId: string) => {
+    // 新しいstreamingメッセージを追加（SSEセッションIDはSelectionOptionsから渡される）
+    setChatMessages(prev => [...prev, { 
+      type: 'streaming' as const, 
+      content: '追加提案を取得中...', 
+      sseSessionId: sseSessionId 
+    }]);
+    
+    console.log('[DEBUG] Added streaming message for additional proposal with SSE session:', sseSessionId);
+  };
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -284,19 +295,32 @@ export default function ChatSection({
                 )}
                 
                 {/* 選択UI表示 */}
-                {message.type === 'ai' && message.requiresSelection && message.candidates && message.taskId && (
-                  <div className="ml-8">
-                    <SelectionOptions
-                      candidates={message.candidates}
-                      onSelect={handleSelection}
-                      onViewDetails={handleViewDetails}
-                      onViewList={handleViewList}
-                      taskId={message.taskId}
-                      sseSessionId={message.sseSessionId || 'unknown'}
-                      isLoading={isTextChatLoading}
-                    />
-                  </div>
-                )}
+                {message.type === 'ai' && message.requiresSelection && message.candidates && message.taskId && (() => {
+                  // requiresSelectionがtrueのメッセージのインデックスリストを取得
+                  const selectionMessageIndices = chatMessages
+                    .map((m, idx) => m.type === 'ai' && m.requiresSelection ? idx : -1)
+                    .filter(idx => idx !== -1);
+                  
+                  // 現在のメッセージのインデックスがリストの最後かどうかで判定
+                  const isLatest = selectionMessageIndices.length > 0 && 
+                                   index === selectionMessageIndices[selectionMessageIndices.length - 1];
+                  
+                  return (
+                    <div className="ml-8">
+                      <SelectionOptions
+                        candidates={message.candidates}
+                        onSelect={handleSelection}
+                        onViewDetails={handleViewDetails}
+                        onViewList={handleViewList}
+                        taskId={message.taskId}
+                        sseSessionId={message.sseSessionId || 'unknown'}
+                        isLoading={isTextChatLoading}
+                        onRequestMore={handleRequestMore}
+                        isLatestSelection={isLatest}
+                      />
+                    </div>
+                  );
+                })()}
                 
                 {/* ストリーミング進捗表示 */}
                 {message.type === 'streaming' && message.sseSessionId && (

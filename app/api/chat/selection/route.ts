@@ -33,12 +33,16 @@ export async function POST(request: NextRequest) {
     });
 
     // バリデーション
-    if (!body.task_id || !body.selection || body.selection < 1 || body.selection > 5) {
-      ServerLogger.warn(LogCategory.API, '無効な選択リクエスト');
+    // Phase 1F: selection=0は追加提案要求として許可
+    if (!body.task_id || body.selection === undefined || (body.selection !== 0 && (body.selection < 1 || body.selection > 5))) {
+      ServerLogger.warn(LogCategory.API, '無効な選択リクエスト', { 
+        taskId: body.task_id, 
+        selection: body.selection 
+      });
       const response = NextResponse.json(
         { 
           success: false, 
-          error: 'Invalid selection request. task_id and selection (1-5) are required.' 
+          error: `Invalid selection request. task_id and selection (0-5) are required. Received: task_id=${body.task_id}, selection=${body.selection}` 
         } as SelectionResponse,
         { status: 400 }
       );
