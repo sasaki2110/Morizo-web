@@ -15,6 +15,10 @@ Phase 2Aで実装したバックエンド選択機能に対応するフロント
   - 認証処理の統一
   - バックエンドエンドポイント修正
   - 複数ユーザー並行処理テスト結果
+- **2025-10-27**: Phase 2D-2 UI改善実装内容を反映
+  - SelectionOptionsの簡素化（カード表示を削除、ラジオボタンのみ）
+  - RecipeListModalの新規作成（3列×2行のレシピ一覧表示）
+  - チャット欄をスッキリさせ、詳細はモーダルで表示
 
 ## 実装内容
 
@@ -443,12 +447,186 @@ import { RecipeCandidate } from '@/types/menu';
 3. **バックエンドエンドポイント修正**: `http://localhost:8000/chat/selection`
 4. **CORS対応**: OPTIONSリクエスト処理追加
 
+## Phase 2D-2: UI改善実装（2025-10-27）
+
+### 概要
+
+ユーザー体験の改善のため、SelectionOptionsを簡素化し、レシピ詳細は別モーダルで表示する仕様に変更しました。
+
+### 実装内容
+
+#### 1. SelectionOptionsの簡素化
+
+**ファイル**: `/app/Morizo-web/components/SelectionOptions.tsx`
+
+変更内容：
+- カード表示（画像、詳細情報）を削除
+- ラジオボタンのみを表示
+- 「レシピ一覧を見る」ボタンを追加
+- チャット欄をスッキリした表示に
+
+```typescript
+interface SelectionOptionsProps {
+  candidates: RecipeCandidate[];
+  onSelect: (selection: number) => void;
+  onViewDetails?: (recipe: RecipeCandidate) => void;
+  onViewList?: (candidates: RecipeCandidate[]) => void;  // 新規追加
+  taskId: string;
+  sseSessionId: string;
+  isLoading?: boolean;
+}
+```
+
+#### 2. RecipeListModalの新規作成
+
+**ファイル**: `/app/Morizo-web/components/RecipeListModal.tsx` (新規作成)
+
+レシピ一覧を3列×2行で横長表示するモーダル：
+
+```typescript
+interface RecipeListModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  candidates: RecipeCandidate[];
+}
+
+const RecipeListModal: React.FC<RecipeListModalProps> = ({
+  isOpen,
+  onClose,
+  candidates
+}) => {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white dark:bg-gray-800 rounded-lg max-w-7xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          {/* ヘッダー */}
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
+              主菜の提案（5件）
+            </h2>
+            <button onClick={onClose}>✕</button>
+          </div>
+          
+          {/* レシピグリッド（3列×2行） */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {candidates.map((candidate, index) => (
+              <div key={index}>
+                {/* 画像表示 */}
+                {candidate.urls && candidate.urls.length > 0 && (
+                  <ImageHandler
+                    urls={candidate.urls}
+                    title={candidate.title}
+                    onUrlClick={(url) => window.open(url, '_blank')}
+                  />
+                )}
+                
+                {/* レシピタイトル */}
+                <h3>{index + 1}. {candidate.title}</h3>
+                
+                {/* 食材情報 */}
+                <div>📋 使用食材: {candidate.ingredients.join(', ')}</div>
+                
+                {/* 調理時間 */}
+                {candidate.cooking_time && (
+                  <div>⏱️ 調理時間: {candidate.cooking_time}</div>
+                )}
+                
+                {/* ソース情報 */}
+                {candidate.source && (
+                  <span>{candidate.source === 'llm' ? 'LLM提案' : 'RAG検索'}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+```
+
+**機能**:
+- 3列×2行のグリッド表示（レスポンシブ対応）
+- 各カードに画像、タイトル、食材、調理時間を表示
+- ソース情報（LLM/RAG）を表示
+- ImageHandlerコンポーネントで画像表示
+
+#### 3. ChatSectionの拡張
+
+**ファイル**: `/app/Morizo-web/components/ChatSection.tsx`
+
+RecipeListModalとの連携を追加：
+
+```typescript
+// モーダル状態の追加
+const [isListModalOpen, setIsListModalOpen] = useState(false);
+const [listModalCandidates, setListModalCandidates] = useState<RecipeCandidate[]>([]);
+
+// 一覧表示ハンドラ
+const handleViewList = (candidates: RecipeCandidate[]) => {
+  setListModalCandidates(candidates);
+  setIsListModalOpen(true);
+};
+
+// SelectionOptionsにプロップを追加
+<SelectionOptions
+  candidates={message.candidates}
+  onSelect={handleSelection}
+  onViewDetails={handleViewDetails}
+  onViewList={handleViewList}  // 新規追加
+  taskId={message.taskId}
+  sseSessionId={message.sseSessionId || 'unknown'}
+  isLoading={isTextChatLoading}
+/>
+
+// RecipeListModalの表示
+{isListModalOpen && listModalCandidates.length > 0 && (
+  <RecipeListModal
+    isOpen={isListModalOpen}
+    onClose={() => {
+      setIsListModalOpen(false);
+      setListModalCandidates([]);
+    }}
+    candidates={listModalCandidates}
+  />
+)}
+```
+
+### 改善効果
+
+- ✅ **チャット欄がスッキリ**: ラジオボタンのみの表示で読みやすい
+- ✅ **詳細確認可能**: モーダルで画像や詳細情報を確認可能
+- ✅ **3列×2行表示**: 横長モーダルで5件を効率的に表示
+- ✅ **レスポンシブ対応**: モバイル・タブレット・デスクトップで適切に表示
+
+### Mobile連携が必要な項目（Phase 2D-2追加分）
+
+#### 1. RecipeListModalコンポーネントの実装
+- `/app/Morizo-web/components/RecipeListModal.tsx` をmobileコンテナに移植
+- 3列×2行グリッドの実装
+- ImageHandlerコンポーネントの活用
+
+#### 2. SelectionOptionsの更新
+- `/app/Morizo-web/components/SelectionOptions.tsx` の変更内容をmobileコンテナに同期
+- `onViewList`プロップの追加
+- カード表示を削除し、ラジオボタンのみ表示
+
+#### 3. ChatSectionの拡張
+- `/app/Morizo-web/components/ChatSection.tsx` の変更内容をmobileコンテナに同期
+- `handleViewList`ハンドラの実装
+- RecipeListModalの状態管理追加
+
+#### 4. インポート文の追加
+```typescript
+import RecipeListModal from '@/components/RecipeListModal';
+```
+
 ## 次のステップ
 
-Phase 2C完了後、Phase 3（副菜・汁物選択）に進む予定です。
+Phase 2D-2完了後、Phase 2D-3（結合試験）に進む予定です。
 
 ---
 
 **実装者**: AI Assistant  
 **レビュー**: ユーザー承認済み  
-**ステータス**: Phase 2C完了
+**ステータス**: Phase 2D-2完了

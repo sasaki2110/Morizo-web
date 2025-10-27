@@ -196,6 +196,8 @@ export interface RecipeCandidate {
   category?: 'main' | 'sub' | 'soup';
   /** ソース（LLM/RAG/Web） */
   source?: 'llm' | 'rag' | 'web';
+  /** URL情報（新規追加） */
+  urls?: RecipeUrl[];
 }
 
 /**

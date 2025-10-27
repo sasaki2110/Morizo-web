@@ -225,9 +225,11 @@ export function parseMenuResponse(response: string): ParseResult {
  * JSON形式を優先し、フォールバックとして文字列解析を使用
  */
 export function parseMenuResponseUnified(response: string, apiResult?: unknown): ParseResult {
+
   // 1. JSON形式を優先
   if (apiResult) {
     const jsonResult = parseMenuFromJson(apiResult);
+    
     if (jsonResult.success) {
       return jsonResult;
     }
@@ -235,5 +237,6 @@ export function parseMenuResponseUnified(response: string, apiResult?: unknown):
   }
 
   // 2. フォールバック: 文字列解析
-  return parseMenuResponse(response);
+  const textResult = parseMenuResponse(response);
+  return textResult;
 }

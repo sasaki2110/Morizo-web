@@ -3,12 +3,12 @@
 import React, { useState } from 'react';
 import { RecipeCandidate } from '@/types/menu';
 import { authenticatedFetch } from '@/lib/auth';
+import ImageHandler from './ImageHandler';
 
 interface SelectionOptionsProps {
   candidates: RecipeCandidate[];
   onSelect: (selection: number) => void;
   onViewDetails?: (recipe: RecipeCandidate) => void;
-  onViewList?: (candidates: RecipeCandidate[]) => void;
   taskId: string;
   sseSessionId: string;
   isLoading?: boolean;
@@ -18,7 +18,6 @@ const SelectionOptions: React.FC<SelectionOptionsProps> = ({
   candidates, 
   onSelect, 
   onViewDetails,
-  onViewList,
   taskId,
   sseSessionId,
   isLoading = false
@@ -138,48 +137,113 @@ const SelectionOptions: React.FC<SelectionOptionsProps> = ({
         採用したいレシピがありましたら、チェックして確定ボタンを押して下さい
       </h3>
       
-      {/* 簡素化されたレシピリスト（ラジオボタンのみ） */}
-      <div className="space-y-2 mb-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {candidates.map((candidate, index) => (
           <div 
             key={index} 
-            className={`flex items-center p-3 rounded-lg transition-all duration-200 ${
+            className={`bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 border-2 transition-all duration-200 ${
               selectedIndex === index 
-                ? 'bg-blue-100 dark:bg-blue-900 border-2 border-blue-500' 
-                : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                ? 'border-blue-500 ring-2 ring-blue-200 bg-blue-50 dark:bg-blue-900' 
+                : 'border-gray-200 dark:border-gray-600 hover:border-blue-300'
             }`}
           >
-            <input
-              type="radio"
-              id={`recipe-${index}`}
-              name="recipe-selection"
-              checked={selectedIndex === index}
-              onChange={() => handleRadioChange(index)}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-              disabled={isLoading || isConfirming}
-            />
-            <label htmlFor={`recipe-${index}`} className="ml-3 flex-1 cursor-pointer">
-              <span className="text-gray-800 dark:text-white font-medium">
-                {index + 1}. {candidate.title}
-              </span>
-            </label>
+            {/* 画像表示（既存のImageHandlerコンポーネントを活用） */}
+            {candidate.urls && candidate.urls.length > 0 && (
+              <div className="mb-3">
+                <ImageHandler
+                  urls={candidate.urls}
+                  title={candidate.title}
+                  onUrlClick={(url) => window.open(url, '_blank')}
+                />
+              </div>
+            )}
+            
+            {/* ラジオボタン */}
+            <div className="flex items-start mb-3">
+              <input
+                type="radio"
+                id={`recipe-${index}`}
+                name="recipe-selection"
+                checked={selectedIndex === index}
+                onChange={() => handleRadioChange(index)}
+                className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                disabled={isLoading || isConfirming}
+              />
+              <label htmlFor={`recipe-${index}`} className="ml-3 flex-1 cursor-pointer">
+                <h4 className="text-lg font-medium text-gray-800 dark:text-white mb-2">
+                  {index + 1}. {candidate.title}
+                </h4>
+              </label>
+            </div>
+            
+            <div className="space-y-2 mb-4">
+              <div className="text-sm">
+                <span className="font-medium text-gray-600 dark:text-gray-400">食材:</span>
+                <span className="ml-1 text-gray-800 dark:text-white">
+                  {candidate.ingredients.join(', ')}
+                </span>
+              </div>
+              
+              {candidate.cooking_time && (
+                <div className="text-sm">
+                  <span className="font-medium text-gray-600 dark:text-gray-400">調理時間:</span>
+                  <span className="ml-1 text-gray-800 dark:text-white">
+                    {candidate.cooking_time}
+                  </span>
+                </div>
+              )}
+              
+              {candidate.description && (
+                <div className="text-sm text-gray-600 dark:text-gray-300 italic">
+                  {candidate.description}
+                </div>
+              )}
+              
+              {candidate.source && (
+                <div className="text-xs">
+                  <span className={`px-2 py-1 rounded-full text-white ${
+                    candidate.source === 'llm' 
+                      ? 'bg-purple-500' 
+                      : candidate.source === 'rag' 
+                        ? 'bg-green-500' 
+                        : 'bg-blue-500'
+                  }`}>
+                    {candidate.source === 'llm' ? 'LLM提案' : 
+                     candidate.source === 'rag' ? 'RAG検索' : 'Web検索'}
+                  </span>
+                </div>
+              )}
+            </div>
+            
+            {/* URL遷移ボタン */}
+            {candidate.urls && candidate.urls.length > 0 && (
+              <div className="mt-3">
+                <button 
+                  onClick={() => window.open(candidate.urls![0].url, '_blank')}
+                  className="w-full px-3 py-2 text-sm bg-blue-100 hover:bg-blue-200 dark:bg-blue-900 dark:hover:bg-blue-800 text-blue-700 dark:text-blue-300 rounded-md transition-colors"
+                >
+                  レシピサイトを見る
+                </button>
+              </div>
+            )}
+            
+            {/* 詳細モーダルボタン */}
+            {candidate.urls && candidate.urls.length > 0 && onViewDetails && (
+              <div className="mt-2">
+                <button 
+                  onClick={() => onViewDetails(candidate)}
+                  className="w-full px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md transition-colors"
+                >
+                  詳細を見る
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>
       
       {/* アクションボタン群 */}
       <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
-        {/* レシピ一覧を見るボタン */}
-        {onViewList && (
-          <button 
-            onClick={() => onViewList(candidates)}
-            disabled={isLoading || isConfirming}
-            className="px-6 py-3 rounded-lg font-medium transition-colors duration-200 bg-indigo-600 hover:bg-indigo-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
-          >
-            📋 レシピ一覧を見る
-          </button>
-        )}
-        
         <button 
           onClick={handleConfirm}
           disabled={selectedIndex === null || isLoading || isConfirming}

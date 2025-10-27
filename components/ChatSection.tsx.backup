@@ -6,7 +6,6 @@ import remarkBreaks from 'remark-breaks';
 import StreamingProgress from '@/components/StreamingProgress';
 import SelectionOptions from '@/components/SelectionOptions';
 import RecipeDetailModal from '@/components/RecipeDetailModal';
-import RecipeListModal from '@/components/RecipeListModal';
 import { authenticatedFetch } from '@/lib/auth';
 import { generateSSESessionId } from '@/lib/session-manager';
 import { isMenuResponse, parseMenuResponseUnified } from '@/lib/menu-parser';
@@ -44,8 +43,6 @@ export default function ChatSection({
   const [awaitingSelection, setAwaitingSelection] = useState<boolean>(false);
   const [selectedRecipe, setSelectedRecipe] = useState<RecipeCandidate | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [isListModalOpen, setIsListModalOpen] = useState(false);
-  const [listModalCandidates, setListModalCandidates] = useState<RecipeCandidate[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // チャットメッセージ更新時の自動スクロール
@@ -67,7 +64,7 @@ export default function ChatSection({
     console.log('[DEBUG] confirmationSessionId:', confirmationSessionId);
     
     // ユーザーメッセージを追加
-    setChatMessages(prev => [...prev, { type: 'user' as const, content: textMessage }]);
+    setChatMessages(prev => [...prev, { type: 'user', content: textMessage }]);
     const currentMessage = textMessage;
     setTextMessage(''); // 入力フィールドをクリア
     
@@ -95,7 +92,7 @@ export default function ChatSection({
     
     // ストリーミング進捗表示を追加
     setChatMessages(prev => [...prev, { 
-      type: 'streaming' as const, 
+      type: 'streaming', 
       content: '', 
       sseSessionId: sseSessionId 
     }]);
@@ -135,9 +132,9 @@ export default function ChatSection({
       }
     } catch (error) {
       // エラー時はストリーミング進捗表示をエラーメッセージに置き換え
-      setChatMessages(prev => prev.map((msg, index): ChatMessage => 
+      setChatMessages(prev => prev.map((msg, index) => 
         msg.type === 'streaming' && msg.sseSessionId === sseSessionId
-          ? { type: 'ai' as const, content: `エラー: ${error instanceof Error ? error.message : '不明なエラー'}` }
+          ? { type: 'ai', content: `エラー: ${error instanceof Error ? error.message : '不明なエラー'}` }
           : msg
       ));
       
@@ -155,7 +152,7 @@ export default function ChatSection({
     
     // 選択結果メッセージを追加
     setChatMessages(prev => [...prev, {
-      type: 'user' as const,
+      type: 'user',
       content: `${selection}番を選択しました`
     }]);
   };
@@ -163,11 +160,6 @@ export default function ChatSection({
   const handleViewDetails = (recipe: RecipeCandidate) => {
     setSelectedRecipe(recipe);
     setIsDetailModalOpen(true);
-  };
-
-  const handleViewList = (candidates: RecipeCandidate[]) => {
-    setListModalCandidates(candidates);
-    setIsListModalOpen(true);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -183,15 +175,6 @@ export default function ChatSection({
     setConfirmationSessionId(null);
     setAwaitingSelection(false);
   };
-
-  // デバッグログ: ChatSectionのレンダリング状況を確認（必要時のみ）
-  if (chatMessages.length > 0 && chatMessages.some(msg => msg.type === 'ai' && msg.requiresSelection)) {
-    console.log('[DEBUG] ChatSection rendering with selection message:', {
-      chatMessagesCount: chatMessages.length,
-      awaitingSelection,
-      hasSelectionMessage: true
-    });
-  }
 
   return (
     <>
@@ -290,7 +273,6 @@ export default function ChatSection({
                       candidates={message.candidates}
                       onSelect={handleSelection}
                       onViewDetails={handleViewDetails}
-                      onViewList={handleViewList}
                       taskId={message.taskId}
                       sseSessionId={message.sseSessionId || 'unknown'}
                       isLoading={isTextChatLoading}
@@ -332,10 +314,10 @@ export default function ChatSection({
                         
                         // ストリーミング進捗表示をAIレスポンスに置き換え（選択要求フラグ付き）
                         setChatMessages(prev => {
-                          const updatedMessages: ChatMessage[] = prev.map((msg, idx) => 
+                          const updatedMessages = prev.map((msg, idx) => 
                             idx === index
                               ? { 
-                                  type: 'ai' as const, 
+                                  type: 'ai', 
                                   content: typedResult.response, 
                                   result: typedResult,
                                   requiresSelection: typedResult.menu_data?.requires_selection, // スネークケースをキャメルケースに変換
@@ -358,22 +340,6 @@ export default function ChatSection({
                             messageIndex: index
                           });
                           
-                          // デバッグログ: 条件分岐の各条件を個別に確認
-                          console.log('[DEBUG] Condition check for SelectionOptions:', {
-                            messageType: updatedMessage?.type,
-                            messageTypeCheck: updatedMessage?.type === 'ai',
-                            requiresSelection: updatedMessage?.requiresSelection,
-                            requiresSelectionCheck: !!updatedMessage?.requiresSelection,
-                            candidates: updatedMessage?.candidates,
-                            candidatesCheck: !!updatedMessage?.candidates,
-                            taskId: updatedMessage?.taskId,
-                            taskIdCheck: !!updatedMessage?.taskId,
-                            allConditionsMet: (updatedMessage?.type === 'ai') && 
-                                           (!!updatedMessage?.requiresSelection) && 
-                                           (!!updatedMessage?.candidates) && 
-                                           (!!updatedMessage?.taskId)
-                          });
-                          
                           return updatedMessages;
                         });
                         
@@ -389,10 +355,10 @@ export default function ChatSection({
                         
                         // ストリーミング進捗表示をAIレスポンスに置き換え（曖昧性確認フラグ付き）
                         setChatMessages(prev => 
-                          prev.map((msg, idx): ChatMessage => 
+                          prev.map((msg, idx) => 
                             idx === index
                               ? { 
-                                  type: 'ai' as const, 
+                                  type: 'ai', 
                                   content: typedResult.response, 
                                   result: typedResult,
                                   requiresConfirmation: typedResult.requires_confirmation // スネークケースをキャメルケースに変換
@@ -406,9 +372,9 @@ export default function ChatSection({
                       } else {
                         // 通常の完了処理
                         setChatMessages(prev => 
-                          prev.map((msg, idx): ChatMessage => 
+                          prev.map((msg, idx) => 
                             idx === index
-                              ? { type: 'ai' as const, content: typedResult?.response || '処理が完了しました', result: typedResult }
+                              ? { type: 'ai', content: typedResult?.response || '処理が完了しました', result: typedResult }
                               : msg
                           )
                         );
@@ -419,17 +385,17 @@ export default function ChatSection({
                     }}
                     onError={(error) => {
                       // エラー時はエラーメッセージに置き換え
-                      setChatMessages(prev => prev.map((msg, idx): ChatMessage => 
+                      setChatMessages(prev => prev.map((msg, idx) => 
                         idx === index
-                          ? { type: 'ai' as const, content: `エラー: ${error}` }
+                          ? { type: 'ai', content: `エラー: ${error}` }
                           : msg
                       ));
                     }}
                     onTimeout={() => {
                       // タイムアウト時はタイムアウトメッセージに置き換え
-                      setChatMessages(prev => prev.map((msg, idx): ChatMessage => 
+                      setChatMessages(prev => prev.map((msg, idx) => 
                         idx === index
-                          ? { type: 'ai' as const, content: '処理がタイムアウトしました。しばらく時間をおいて再試行してください。' }
+                          ? { type: 'ai', content: '処理がタイムアウトしました。しばらく時間をおいて再試行してください。' }
                           : msg
                       ));
                     }}
@@ -508,18 +474,6 @@ export default function ChatSection({
             setSelectedRecipe(null);
           }}
           recipe={selectedRecipe}
-        />
-      )}
-      
-      {/* レシピ一覧モーダル */}
-      {isListModalOpen && listModalCandidates.length > 0 && (
-        <RecipeListModal
-          isOpen={isListModalOpen}
-          onClose={() => {
-            setIsListModalOpen(false);
-            setListModalCandidates([]);
-          }}
-          candidates={listModalCandidates}
         />
       )}
     </>
