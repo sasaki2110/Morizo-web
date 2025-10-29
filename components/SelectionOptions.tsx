@@ -14,6 +14,12 @@ interface SelectionOptionsProps {
   isLoading?: boolean;
   onRequestMore?: (sseSessionId: string) => void; // 追加提案用のコールバック
   isLatestSelection?: boolean; // 最新の選択候補かどうか
+  // Phase 3D: 段階情報
+  currentStage?: 'main' | 'sub' | 'soup';
+  usedIngredients?: string[];
+  menuCategory?: 'japanese' | 'western' | 'chinese';
+  // Phase 3C-3: 次の段階リクエスト用のコールバック
+  onNextStageRequested?: () => void;
 }
 
 const SelectionOptions: React.FC<SelectionOptionsProps> = ({ 
@@ -25,7 +31,11 @@ const SelectionOptions: React.FC<SelectionOptionsProps> = ({
   sseSessionId,
   isLoading = false,
   onRequestMore,
-  isLatestSelection = true
+  isLatestSelection = true,
+  currentStage,
+  usedIngredients,
+  menuCategory,
+  onNextStageRequested
 }) => {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [isConfirming, setIsConfirming] = useState<boolean>(false);
@@ -68,9 +78,17 @@ const SelectionOptions: React.FC<SelectionOptionsProps> = ({
       
       // デバッグ: 選択結果のレスポンスを確認
       console.log('[DEBUG] Selection response:', result);
+      console.log('[DEBUG] Selected taskId:', taskId);
+      console.log('[DEBUG] Selected index:', selectedIndex + 1);
       
       if (result.success) {
         onSelect(selectedIndex + 1);
+        
+        // Phase 3C-3: 次の段階の提案が要求されている場合はフラグをチェック
+        if (result.requires_next_stage && onNextStageRequested) {
+          console.log('[DEBUG] requires_next_stage flag detected, calling onNextStageRequested');
+          onNextStageRequested();
+        }
       } else {
         throw new Error(result.error || 'Selection failed');
       }
@@ -144,8 +162,42 @@ const SelectionOptions: React.FC<SelectionOptionsProps> = ({
     );
   }
 
+  // Phase 3D: 段階名の表示テキスト
+  const stageLabel = currentStage === 'main' ? '主菜' : currentStage === 'sub' ? '副菜' : currentStage === 'soup' ? '汁物' : '';
+  const menuCategoryLabel = menuCategory === 'japanese' ? '和食' : menuCategory === 'western' ? '洋食' : menuCategory === 'chinese' ? '中華' : '';
+
   return (
     <div className="mt-6 p-6 bg-gray-50 dark:bg-gray-700 rounded-lg">
+      {/* Phase 3D: 段階情報の表示 */}
+      {(currentStage || menuCategory) && (
+        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+          <div className="flex flex-wrap gap-2 items-center text-sm">
+            {currentStage && (
+              <span className="px-3 py-1 bg-blue-600 text-white rounded-full font-medium">
+                {stageLabel}を選んでください
+              </span>
+            )}
+            {menuCategory && (
+              <span className="px-3 py-1 bg-indigo-600 text-white rounded-full font-medium">
+                {menuCategoryLabel}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+      
+      {/* Phase 3D: 使える食材の表示 */}
+      {usedIngredients && usedIngredients.length > 0 && (
+        <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+          <p className="text-sm text-gray-700 dark:text-gray-300 font-medium mb-1">
+            📦 使える食材:
+          </p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            {usedIngredients.join(', ')}
+          </p>
+        </div>
+      )}
+      
       <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 text-center">
         採用したいレシピがありましたら、チェックして確定ボタンを押して下さい
       </h3>
@@ -163,14 +215,14 @@ const SelectionOptions: React.FC<SelectionOptionsProps> = ({
           >
             <input
               type="radio"
-              id={`recipe-${index}`}
-              name="recipe-selection"
+              id={`recipe-${currentStage || 'unknown'}-${index}`}
+              name={`recipe-selection-${currentStage || 'unknown'}`}
               checked={selectedIndex === index}
               onChange={() => handleRadioChange(index)}
               className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
               disabled={isLoading || isConfirming}
             />
-            <label htmlFor={`recipe-${index}`} className="ml-3 flex-1 cursor-pointer">
+            <label htmlFor={`recipe-${currentStage || 'unknown'}-${index}`} className="ml-3 flex-1 cursor-pointer">
               <span className="text-gray-800 dark:text-white font-medium">
                 {index + 1}. {candidate.title}
               </span>
