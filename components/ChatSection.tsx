@@ -355,6 +355,12 @@ export default function ChatSection({
                   const isLatest = selectionMessageIndices.length > 0 && 
                                    index === selectionMessageIndices[selectionMessageIndices.length - 1];
                   
+                  // 同一ステージの提案回数（現在までに同ステージで出た選択UIの数 + 1）
+                  const proposalRound = chatMessages
+                    .slice(0, index)
+                    .filter(m => m.type === 'ai' && m.requiresSelection && m.currentStage === message.currentStage)
+                    .length + 1;
+                  
                   return (
                     <div className="ml-8" key={`selection-${index}-${message.taskId}`}>
                       <SelectionOptions
@@ -371,6 +377,8 @@ export default function ChatSection({
                         usedIngredients={message.usedIngredients}
                         menuCategory={message.menuCategory}
                         onNextStageRequested={handleNextStageRequested}
+                        // 提案回数（ラウンド）を渡してラジオグループ名を一意化
+                        proposalRound={proposalRound}
                       />
                     </div>
                   );

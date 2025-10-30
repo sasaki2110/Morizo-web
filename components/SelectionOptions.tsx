@@ -20,6 +20,8 @@ interface SelectionOptionsProps {
   menuCategory?: 'japanese' | 'western' | 'chinese';
   // Phase 3C-3: 次の段階リクエスト用のコールバック
   onNextStageRequested?: () => void;
+  // 提案回数（同一ステージ内の提案バッチ番号）
+  proposalRound?: number;
 }
 
 const SelectionOptions: React.FC<SelectionOptionsProps> = ({ 
@@ -35,7 +37,8 @@ const SelectionOptions: React.FC<SelectionOptionsProps> = ({
   currentStage,
   usedIngredients,
   menuCategory,
-  onNextStageRequested
+  onNextStageRequested,
+  proposalRound
 }) => {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [isConfirming, setIsConfirming] = useState<boolean>(false);
@@ -215,14 +218,14 @@ const SelectionOptions: React.FC<SelectionOptionsProps> = ({
           >
             <input
               type="radio"
-              id={`recipe-${currentStage || 'unknown'}-${index}`}
-              name={`recipe-selection-${currentStage || 'unknown'}`}
+              id={`recipe-${currentStage || 'unknown'}-r${(proposalRound || 1)}-${index}`}
+              name={`recipe-selection-${currentStage || 'unknown'}-r${(proposalRound || 1)}`}
               checked={selectedIndex === index}
               onChange={() => handleRadioChange(index)}
               className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
               disabled={isLoading || isConfirming}
             />
-            <label htmlFor={`recipe-${currentStage || 'unknown'}-${index}`} className="ml-3 flex-1 cursor-pointer">
+            <label htmlFor={`recipe-${currentStage || 'unknown'}-r${(proposalRound || 1)}-${index}`} className="ml-3 flex-1 cursor-pointer">
               <span className="text-gray-800 dark:text-white font-medium">
                 {index + 1}. {candidate.title}
               </span>
