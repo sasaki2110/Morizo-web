@@ -8,6 +8,7 @@ import SelectionOptions from '@/components/SelectionOptions';
 import RecipeDetailModal from '@/components/RecipeDetailModal';
 import RecipeListModal from '@/components/RecipeListModal';
 import SelectedRecipeCard from '@/components/SelectedRecipeCard';  // Phase 5B-3: 選択履歴表示コンポーネント
+import HistoryPanel from '@/components/HistoryPanel';  // Phase 5C-3: 履歴パネルコンポーネント
 import { authenticatedFetch } from '@/lib/auth';
 import { generateSSESessionId } from '@/lib/session-manager';
 import { isMenuResponse, parseMenuResponseUnified } from '@/lib/menu-parser';
@@ -65,6 +66,8 @@ export default function ChatSection({
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isListModalOpen, setIsListModalOpen] = useState(false);
   const [listModalCandidates, setListModalCandidates] = useState<RecipeCandidate[]>([]);
+  // Phase 5C-3: 履歴パネルの状態管理
+  const [isHistoryPanelOpen, setIsHistoryPanelOpen] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // チャットメッセージ更新時の自動スクロール
@@ -805,9 +808,17 @@ export default function ChatSection({
 
       {/* テキストチャットセクション */}
       <div className="mt-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8">
-        <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-6 text-center">
-          Morizo AI テキストチャット
-        </h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold text-gray-800 dark:text-white">
+            Morizo AI テキストチャット
+          </h2>
+          <button
+            onClick={() => setIsHistoryPanelOpen(true)}
+            className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+          >
+            📅 履歴
+          </button>
+        </div>
         
         <div className="space-y-4">
           <div className="flex space-x-2">
@@ -866,6 +877,12 @@ export default function ChatSection({
           candidates={listModalCandidates}
         />
       )}
+      
+      {/* Phase 5C-3: 履歴パネル */}
+      <HistoryPanel
+        isOpen={isHistoryPanelOpen}
+        onClose={() => setIsHistoryPanelOpen(false)}
+      />
     </>
   );
 }
