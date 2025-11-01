@@ -6,7 +6,7 @@ import { authenticatedFetch } from '@/lib/auth';
 
 interface SelectionOptionsProps {
   candidates: RecipeCandidate[];
-  onSelect: (selection: number) => void;
+  onSelect: (selection: number, selectionResult?: any) => void;  // Phase 5B-2: レスポンスを受け取れるように拡張
   onViewDetails?: (recipe: RecipeCandidate) => void;
   onViewList?: (candidates: RecipeCandidate[]) => void;
   taskId: string;
@@ -85,7 +85,8 @@ const SelectionOptions: React.FC<SelectionOptionsProps> = ({
       console.log('[DEBUG] Selected index:', selectedIndex + 1);
       
       if (result.success) {
-        onSelect(selectedIndex + 1);
+        // Phase 5B-2: レスポンス全体をonSelectに渡す
+        onSelect(selectedIndex + 1, result);
         
         // Phase 3C-3: 次の段階の提案が要求されている場合はフラグをチェック
         if (result.requires_next_stage && onNextStageRequested) {

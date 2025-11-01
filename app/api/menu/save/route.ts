@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest, authenticatedMorizoAIRequest } from '@/lib/auth-server';
 import { ServerLogger, LogCategory, logApiCall, logError } from '@/lib/logging-utils';
-import { SelectionRequest, SelectionResponse } from '@/types/menu';
 
 const MORIZO_AI_URL = process.env.MORIZO_AI_URL || 'http://localhost:8000';
 
@@ -21,29 +20,23 @@ export async function OPTIONS() {
 }
 
 export async function POST(request: NextRequest) {
-  const timer = ServerLogger.startTimer('selection-api');
+  const timer = ServerLogger.startTimer('menu-save-api');
   
   try {
-    ServerLogger.info(LogCategory.API, '選択API呼び出し開始');
+    ServerLogger.info(LogCategory.API, '献立保存API呼び出し開始');
     
-    const body: SelectionRequest = await request.json();
+    const requestBody = await request.json();
+    const { sse_session_id, recipes } = requestBody;
     ServerLogger.debug(LogCategory.API, 'リクエストボディ解析完了', { 
-      taskId: body.task_id,
-      selection: body.selection 
+      hasRecipes: !!recipes,
+      hasSseSessionId: !!sse_session_id
     });
 
-    // バリデーション
-    // Phase 1F: selection=0は追加提案要求として許可
-    if (!body.task_id || body.selection === undefined || (body.selection !== 0 && (body.selection < 1 || body.selection > 5))) {
-      ServerLogger.warn(LogCategory.API, '無効な選択リクエスト', { 
-        taskId: body.task_id, 
-        selection: body.selection 
-      });
+    // recipes または sse_session_id のいずれかが必要
+    if (!recipes && !sse_session_id) {
+      ServerLogger.warn(LogCategory.API, 'レシピ情報またはSSEセッションIDが必要です');
       const response = NextResponse.json(
-        { 
-          success: false, 
-          error: `Invalid selection request. task_id and selection (0-5) are required. Received: task_id=${body.task_id}, selection=${body.selection}` 
-        } as SelectionResponse,
+        { error: 'レシピ情報またはSSEセッションIDが必要です' },
         { status: 400 }
       );
       return setCorsHeaders(response);
@@ -63,13 +56,24 @@ export async function POST(request: NextRequest) {
     ServerLogger.info(LogCategory.API, '認証成功', { tokenMasked: ServerLogger.maskToken(token) });
 
     // Morizo AIに送信（認証トークン付き）
-    ServerLogger.info(LogCategory.API, 'Morizo AIに選択リクエスト送信開始');
-    const aiResponse = await authenticatedMorizoAIRequest(`${MORIZO_AI_URL}/chat/selection`, {
+    ServerLogger.info(LogCategory.API, 'Morizo AIに献立保存リクエスト送信開始');
+    
+    // recipes があればそれを優先、なければ sse_session_id を使用
+    const requestPayload: { recipes?: any; sse_session_id?: string } = {};
+    if (recipes) {
+      requestPayload.recipes = recipes;
+      ServerLogger.debug(LogCategory.API, 'レシピ情報を直接送信');
+    } else if (sse_session_id) {
+      requestPayload.sse_session_id = sse_session_id;
+      ServerLogger.debug(LogCategory.API, 'SSEセッションIDを使用');
+    }
+    
+    const aiResponse = await authenticatedMorizoAIRequest(`${MORIZO_AI_URL}/api/menu/save`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify(requestPayload),
     }, token);
 
     if (!aiResponse.ok) {
@@ -78,27 +82,37 @@ export async function POST(request: NextRequest) {
       throw new Error(errorMsg);
     }
 
-    const result: SelectionResponse = await aiResponse.json();
-    ServerLogger.info(LogCategory.API, 'Morizo AIからのレスポンス受信完了');
+    const data = await aiResponse.json();
+    ServerLogger.info(LogCategory.API, 'Morizo AIからのレスポンス受信完了', { 
+      success: data.success,
+      totalSaved: data.total_saved
+    });
 
     timer();
-    logApiCall('POST', '/api/chat/selection', 200, undefined);
+    logApiCall('POST', '/api/menu/save', 200, undefined);
     
-    const nextResponse = NextResponse.json(result);
+    const nextResponse = NextResponse.json({
+      success: data.success,
+      message: data.message,
+      saved_recipes: data.saved_recipes,
+      total_saved: data.total_saved
+    });
+    
     return setCorsHeaders(nextResponse);
 
   } catch (error) {
     timer();
-    logError(LogCategory.API, error, 'selection-api');
-    logApiCall('POST', '/api/chat/selection', 500, undefined, error instanceof Error ? error.message : '不明なエラー');
+    logError(LogCategory.API, error, 'menu-save-api');
+    logApiCall('POST', '/api/menu/save', 500, undefined, error instanceof Error ? error.message : '不明なエラー');
     
     const errorResponse = NextResponse.json(
       { 
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error occurred' 
-      } as SelectionResponse,
+        error: 'Morizo AIとの通信に失敗しました',
+        details: error instanceof Error ? error.message : '不明なエラー'
+      },
       { status: 500 }
     );
     return setCorsHeaders(errorResponse);
   }
 }
+

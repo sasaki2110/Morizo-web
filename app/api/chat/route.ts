@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest, authenticatedMorizoAIRequest } from '@/lib/auth-server';
 import { ServerLogger, LogCategory, logApiCall, logError } from '@/lib/logging-utils';
 
-const MORIZO_AI_URL = 'http://localhost:8000';
+const MORIZO_AI_URL = process.env.MORIZO_AI_URL || 'http://localhost:8000';
 
 // CORSヘッダーを設定するヘルパー関数
 function setCorsHeaders(response: NextResponse) {
