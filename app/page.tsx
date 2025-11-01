@@ -6,9 +6,10 @@ import UserProfile from '@/components/UserProfile';
 import ChatSection from '@/components/ChatSection';
 import VoiceSection from '@/components/VoiceSection';
 import { RecipeModalResponsive } from '../components/RecipeModal';
+import { ChatMessage } from '@/types/chat';
 
 export default function Home() {
-  const [chatMessages, setChatMessages] = useState<Array<{type: 'user' | 'ai' | 'streaming', content: string, sseSessionId?: string, result?: unknown}>>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [isTextChatLoading, setIsTextChatLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);

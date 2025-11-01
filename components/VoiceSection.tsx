@@ -3,13 +3,7 @@
 import VoiceRecorder from '@/components/VoiceRecorder';
 import { authenticatedFetch } from '@/lib/auth';
 import { generateSSESessionId } from '@/lib/session-manager';
-
-interface ChatMessage {
-  type: 'user' | 'ai' | 'streaming';
-  content: string;
-  sseSessionId?: string;
-  result?: unknown;
-}
+import { ChatMessage } from '@/types/chat';
 
 interface VoiceSectionProps {
   isChatLoading: boolean;
