@@ -244,7 +244,7 @@ const SelectionOptions: React.FC<SelectionOptionsProps> = ({
             disabled={isLoading || isConfirming}
             className="px-6 py-3 rounded-lg font-medium transition-colors duration-200 bg-indigo-600 hover:bg-indigo-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
-            📋 レシピ一覧を見る
+            📋 レシピを見る
           </button>
         )}
         

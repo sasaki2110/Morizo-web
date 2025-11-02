@@ -9,6 +9,7 @@ interface SelectedRecipeCardProps {
   soup?: RecipeCandidate;
   onSave?: () => void;
   onViewDetails?: (recipe: RecipeCandidate) => void;
+  onViewList?: (candidates: RecipeCandidate[]) => void;
   isSaving?: boolean;
   savedMessage?: string;
 }
@@ -19,6 +20,7 @@ const SelectedRecipeCard: React.FC<SelectedRecipeCardProps> = ({
   soup,
   onSave,
   onViewDetails,
+  onViewList,
   isSaving = false,
   savedMessage
 }) => {
@@ -110,6 +112,20 @@ const SelectedRecipeCard: React.FC<SelectedRecipeCardProps> = ({
             className="px-6 py-3 rounded-lg font-medium transition-colors duration-200 bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
             {isSaving ? '保存中...' : '献立を保存'}
+          </button>
+        )}
+        {onViewList && (main || sub || soup) && (
+          <button
+            onClick={() => {
+              const recipes = [];
+              if (main) recipes.push(main);
+              if (sub) recipes.push(sub);
+              if (soup) recipes.push(soup);
+              onViewList(recipes);
+            }}
+            className="px-6 py-3 rounded-lg font-medium transition-colors duration-200 bg-indigo-600 hover:bg-indigo-700 text-white"
+          >
+            📋 レシピを見る
           </button>
         )}
       </div>

@@ -233,6 +233,7 @@ export default function ChatMessageList({
             sub={selectedRecipes.sub}
             soup={selectedRecipes.soup}
             onSave={onSaveMenu}
+            onViewList={onViewList}
             isSaving={isSavingMenu}
             savedMessage={savedMessage}
           />
