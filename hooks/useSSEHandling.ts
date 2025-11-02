@@ -29,11 +29,25 @@ export function useSSEHandling(
 
   // Phase 3C-3: 次の段階の提案を要求
   const handleNextStageRequested = async () => {
-    // 最後のメッセージからSSEセッションIDを取得
-    const lastMessage = chatMessages[chatMessages.length - 1];
-    const sseSessionId = lastMessage.sseSessionId || 'unknown';
+    // より確実にSSEセッションIDを取得（sseSessionIdを持つ最後のメッセージを探す）
+    let sseSessionId = 'unknown';
+    
+    // 最後のメッセージから順に、sseSessionIdを持つメッセージを探す
+    for (let i = chatMessages.length - 1; i >= 0; i--) {
+      const message = chatMessages[i];
+      if (message.sseSessionId && message.sseSessionId !== 'unknown') {
+        sseSessionId = message.sseSessionId;
+        break;
+      }
+    }
     
     console.log('[DEBUG] Next stage requested, SSE session ID:', sseSessionId);
+    
+    if (sseSessionId === 'unknown') {
+      console.warn('[DEBUG] No valid SSE session ID found in chat messages');
+      // バックエンドがユーザーの全セッションからnext_stage_requestを探すため、unknownでも送信
+      // ただし、エラーが返された場合は適切に処理する
+    }
     
     // 新しいstreamingメッセージを追加
     setChatMessages(prev => [...prev, { 
@@ -57,14 +71,16 @@ export function useSSEHandling(
       });
 
       if (!response.ok) {
-        throw new Error(`チャットAPI エラー: ${response.status}`);
+        const errorData = await response.json().catch(() => ({ detail: 'エラーが発生しました' }));
+        throw new Error(errorData.detail || `チャットAPI エラー: ${response.status}`);
       }
 
       // SSEのStreamingProgressが処理するため、ここでは何もしない
       console.log('[DEBUG] Next stage request sent successfully');
     } catch (error) {
       console.error('Next stage request failed:', error);
-      alert('次段階の提案の取得に失敗しました。');
+      const errorMessage = error instanceof Error ? error.message : '次段階の提案の取得に失敗しました。';
+      alert(errorMessage);
     }
   };
 

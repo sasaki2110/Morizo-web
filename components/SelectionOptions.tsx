@@ -43,6 +43,11 @@ const SelectionOptions: React.FC<SelectionOptionsProps> = ({
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [isConfirming, setIsConfirming] = useState<boolean>(false);
   const [isRequestingMore, setIsRequestingMore] = useState(false);
+  const [showStageConfirmation, setShowStageConfirmation] = useState<boolean>(false);
+  const [confirmationData, setConfirmationData] = useState<{
+    message: string;
+    nextStageName: string;
+  } | null>(null);
 
   const handleRadioChange = (index: number) => {
     setSelectedIndex(index);
@@ -88,6 +93,19 @@ const SelectionOptions: React.FC<SelectionOptionsProps> = ({
         // Phase 5B-2: レスポンス全体をonSelectに渡す
         onSelect(selectedIndex + 1, result);
         
+        // 確認ステップが必要な場合（requires_stage_confirmationフラグがtrue）
+        if (result.requires_stage_confirmation && result.confirmation_message && result.next_stage_name) {
+          console.log('[DEBUG] requires_stage_confirmation flag detected, showing confirmation dialog');
+          setConfirmationData({
+            message: result.confirmation_message,
+            nextStageName: result.next_stage_name
+          });
+          setShowStageConfirmation(true);
+          // 確認待ちのため、ここではonNextStageRequestedを呼ばない
+          return;
+        }
+        
+        // 確認ステップが不要な場合（旧方式のフォールバック）
         // Phase 3C-3: 次の段階の提案が要求されている場合はフラグをチェック
         if (result.requires_next_stage && onNextStageRequested) {
           console.log('[DEBUG] requires_next_stage flag detected, calling onNextStageRequested');
@@ -293,6 +311,42 @@ const SelectionOptions: React.FC<SelectionOptionsProps> = ({
           <p className="text-sm text-blue-600 dark:text-blue-400">
             {selectedIndex + 1}番のレシピを選択しています
           </p>
+        </div>
+      )}
+      
+      {/* 段階遷移確認ダイアログ */}
+      {showStageConfirmation && confirmationData && (
+        <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+          <p className="text-base font-medium text-gray-800 dark:text-white mb-4 text-center">
+            {confirmationData.message}
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              onClick={() => {
+                // 進むボタン: 次の段階を開始
+                setShowStageConfirmation(false);
+                setConfirmationData(null);
+                if (onNextStageRequested) {
+                  console.log(`[DEBUG] User confirmed, proceeding to ${confirmationData.nextStageName} stage`);
+                  onNextStageRequested();
+                }
+              }}
+              className="px-6 py-3 rounded-lg font-medium transition-colors duration-200 bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              進む
+            </button>
+            <button
+              onClick={() => {
+                // キャンセルボタン: 確認を閉じる（現在の段階に留まる）
+                setShowStageConfirmation(false);
+                setConfirmationData(null);
+                console.log('[DEBUG] User cancelled stage transition');
+              }}
+              className="px-6 py-3 rounded-lg font-medium transition-colors duration-200 bg-gray-400 hover:bg-gray-500 text-white"
+            >
+              キャンセル
+            </button>
+          </div>
         </div>
       )}
     </div>
