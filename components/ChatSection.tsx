@@ -6,6 +6,7 @@ import ChatInput from '@/components/ChatInput';
 import RecipeDetailModal from '@/components/RecipeDetailModal';
 import RecipeListModal from '@/components/RecipeListModal';
 import HistoryPanel from '@/components/HistoryPanel';
+import InventoryPanel from '@/components/InventoryPanel';
 import { ChatSectionProps } from '@/types/chat';
 import { useModalManagement } from '@/hooks/useModalManagement';
 import { useRecipeSelection } from '@/hooks/useRecipeSelection';
@@ -35,6 +36,9 @@ export default function ChatSection({
     isHistoryPanelOpen,
     openHistoryPanel,
     closeHistoryPanel,
+    isInventoryPanelOpen,
+    openInventoryPanel,
+    closeInventoryPanel,
   } = useModalManagement();
 
   // レシピ選択管理フック
@@ -116,6 +120,7 @@ export default function ChatSection({
         isTextChatLoading={isTextChatLoading}
         awaitingSelection={awaitingSelection}
         onOpenHistory={openHistoryPanel}
+        onOpenInventory={openInventoryPanel}
       />
       
       {/* レシピ詳細モーダル */}
@@ -140,6 +145,12 @@ export default function ChatSection({
       <HistoryPanel
         isOpen={isHistoryPanelOpen}
         onClose={closeHistoryPanel}
+      />
+      
+      {/* Phase 1-2: 在庫パネル */}
+      <InventoryPanel
+        isOpen={isInventoryPanelOpen}
+        onClose={closeInventoryPanel}
       />
     </>
   );

@@ -3,7 +3,7 @@ import { RecipeCandidate } from '@/types/menu';
 
 /**
  * モーダル管理フック
- * レシピ詳細モーダル、レシピ一覧モーダル、履歴パネルの状態を管理
+ * レシピ詳細モーダル、レシピ一覧モーダル、履歴パネル、在庫パネルの状態を管理
  */
 export function useModalManagement() {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -11,6 +11,7 @@ export function useModalManagement() {
   const [isListModalOpen, setIsListModalOpen] = useState(false);
   const [listModalCandidates, setListModalCandidates] = useState<RecipeCandidate[]>([]);
   const [isHistoryPanelOpen, setIsHistoryPanelOpen] = useState(false);
+  const [isInventoryPanelOpen, setIsInventoryPanelOpen] = useState(false);
 
   const handleViewDetails = (recipe: RecipeCandidate) => {
     setSelectedRecipe(recipe);
@@ -40,6 +41,14 @@ export function useModalManagement() {
     setIsHistoryPanelOpen(true);
   };
 
+  const closeInventoryPanel = () => {
+    setIsInventoryPanelOpen(false);
+  };
+
+  const openInventoryPanel = () => {
+    setIsInventoryPanelOpen(true);
+  };
+
   return {
     // 詳細モーダル
     isDetailModalOpen,
@@ -55,6 +64,10 @@ export function useModalManagement() {
     isHistoryPanelOpen,
     openHistoryPanel,
     closeHistoryPanel,
+    // 在庫パネル
+    isInventoryPanelOpen,
+    openInventoryPanel,
+    closeInventoryPanel,
   };
 }
 

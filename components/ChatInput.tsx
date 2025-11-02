@@ -8,6 +8,7 @@ interface ChatInputProps {
   isTextChatLoading: boolean;
   awaitingSelection: boolean;
   onOpenHistory: () => void;
+  onOpenInventory: () => void;
 }
 
 /**
@@ -22,6 +23,7 @@ export default function ChatInput({
   isTextChatLoading,
   awaitingSelection,
   onOpenHistory,
+  onOpenInventory,
 }: ChatInputProps) {
   return (
     <div className="mt-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8">
@@ -29,12 +31,20 @@ export default function ChatInput({
         <h2 className="text-xl font-bold text-gray-800 dark:text-white">
           Morizo AI テキストチャット
         </h2>
-        <button
-          onClick={onOpenHistory}
-          className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
-        >
-          📅 履歴
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={onOpenInventory}
+            className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+          >
+            📦 在庫
+          </button>
+          <button
+            onClick={onOpenHistory}
+            className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+          >
+            📅 履歴
+          </button>
+        </div>
       </div>
       
       <div className="space-y-4">
