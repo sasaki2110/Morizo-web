@@ -94,12 +94,148 @@ CREATE POLICY "Users can delete own inventory" ON inventory
 ```
 
 ### **認証設定**
+
+#### **基本設定**
 1. Supabase Dashboard → Authentication → Settings
-2. Site URL: `http://localhost:3000`
+2. Site URL: `http://localhost:3000`（開発環境）
 3. Redirect URLs: `http://localhost:3000/**`
-4. Google認証を有効にする場合：
-   - Google OAuth設定を追加
-   - Client IDとClient Secretを設定
+
+#### **Google認証の有効化（オプション）**
+
+Google認証を有効にする場合は、以下の手順に従って設定してください。
+
+**注意**: Google CloudのOAuth 2.0クライアント作成は**無料**です。認証のみの用途であれば追加費用はかかりません。
+
+##### **手順1: Google Cloud Consoleでの設定**
+
+1. [Google Cloud Console](https://console.cloud.google.com/)にアクセス
+2. プロジェクトを作成または選択
+   - 新規作成する場合: 「プロジェクトを選択」→「新しいプロジェクト」→プロジェクト名を入力→「作成」
+3. 「APIとサービス」→「認証情報」に移動
+   - 左側メニューから「認証情報」を選択
+4. **OAuth同意画面の設定**（初回のみ必要）:
+   - 「APIとサービス」→「OAuth同意画面」を選択
+   - 「Google Auth Platform はまだ構成されていません」という画面が表示された場合、「開始」ボタンをクリック
+   - 以下の情報を入力：
+     - **ユーザータイプ**: 「外部」を選択（一般ユーザーがアクセス可能にする場合）
+       - 注意: 「内部」はGoogle Workspace組織内のユーザーのみアクセス可能
+     - **アプリ名**: アプリ名を入力（例: "Morizo Web"）
+       - ユーザーのログイン画面に表示されます
+     - **ユーザーサポートメール**: あなたのメールアドレスを選択
+     - **デベロッパーの連絡先情報**: メールアドレスを入力
+   - 「保存して次へ」をクリック
+   - **スコープ**: デフォルトのまま（基本プロフィール情報のみ）で「保存して次へ」
+   - **テストユーザー**: 公開前にテストする場合は追加（オプション）→「保存して次へ」→「ダッシュボードに戻る」
+
+5. **OAuth 2.0 クライアント ID の作成**:
+   - 「APIとサービス」→「認証情報」に移動
+   - 「認証情報を作成」ボタンをクリック→「OAuth 2.0 クライアント ID」を選択
+   - **アプリケーションの種類**: 「Web アプリケーション」を選択
+   - **名前**: 任意の名前（例: "Morizo Web OAuth Client"）
+   - **承認済みのリダイレクト URI**に以下を追加：
+     ```
+     https://<your-project-id>.supabase.co/auth/v1/callback
+     ```
+     - `<your-project-id>`はSupabaseプロジェクトのID（Supabase Dashboard → Settings → API で確認可能）
+     - 例: `https://abcdefghijklmnop.supabase.co/auth/v1/callback`
+   - 「作成」をクリック
+   - **クライアント ID**と**クライアント シークレット**をコピーして保存（後で使用します）
+
+##### **手順2: Supabaseでの設定**
+
+1. [Supabase Dashboard](https://app.supabase.com/)にアクセス
+2. プロジェクトを選択
+3. 左メニューから「Authentication」→「Providers」を選択
+4. プロバイダー一覧から「Google」をクリック
+5. 「Enable Google provider」トグルを ON にする
+6. 以下を入力：
+   - **Client ID (for OAuth)**: Google Cloud Consoleでコピーしたクライアント ID
+   - **Client Secret (for OAuth)**: Google Cloud Consoleでコピーしたクライアント シークレット
+7. 「Save」をクリック
+
+##### **動作確認**
+
+1. ブラウザで `http://localhost:3000` にアクセス
+2. 「Googleでログイン」ボタンをクリック
+3. Googleアカウントの選択画面が表示されることを確認
+4. ログイン後、アプリに戻って認証が成功することを確認
+
+##### **本番環境での設定**
+
+本番環境でもGoogle認証を使用する場合：
+
+1. **Google Cloud Console**:
+   - 本番環境用のOAuth 2.0クライアントIDを作成（または既存のものを使用）
+   - 承認済みのリダイレクト URIに本番URLを追加：
+     ```
+     https://<your-production-domain>/auth/v1/callback
+     ```
+
+2. **Supabase**:
+   - 本番環境用のSupabaseプロジェクトで上記手順を繰り返す
+   - または、開発環境と同じクライアントID/シークレットを使用する場合は、リダイレクトURIに本番URLを追加
+
+##### **モバイルアプリ（iOS/Android）でのGoogle認証設定**
+
+モバイルアプリでもGoogle認証を使用する場合の設定方法です。
+
+**重要**: SupabaseのGoogleプロバイダー設定では、1つのクライアントIDとシークレットしか登録できません。以下の2つの方法があります。
+
+###### **方法1: 同じWebアプリケーション用クライアントIDを使用（推奨：簡単）**
+
+多くの場合、Webアプリケーション用に作成したOAuthクライアントIDを、そのままモバイルアプリでも使用できます。
+
+**Google Cloud Consoleでの設定**:
+1. 既存のWebアプリケーション用OAuthクライアントIDを選択
+2. 「承認済みのリダイレクト URI」に以下を追加：
+   - **Android用**: `com.your.package.name:/` （カスタムスキーム）
+   - **iOS用**: `com.your.bundle.id:/` （カスタムスキーム）
+   - または、Supabaseが提供するモバイル用リダイレクトURI
+
+**Supabaseでの設定**:
+- 既に設定済みのWebアプリケーション用のクライアントIDとシークレットをそのまま使用
+
+**モバイルアプリ側での実装**:
+- SupabaseのモバイルSDK（Expo/React Native）を使用する場合、自動的に適切なリダイレクトURIを処理します
+- 追加設定は通常不要です
+
+###### **方法2: プラットフォーム別のOAuthクライアントIDを作成（高度）**
+
+プラットフォームごとに異なるクライアントIDを作成する場合：
+
+**Google Cloud Consoleでの設定**:
+
+1. **Android用OAuthクライアントID**:
+   - 「認証情報を作成」→「OAuth 2.0 クライアント ID」
+   - **アプリケーションの種類**: 「Android」を選択
+   - **名前**: 任意（例: "Morizo Mobile Android"）
+   - **パッケージ名**: モバイルアプリのパッケージ名（例: `com.morizo.app`）
+   - **SHA-1証明書フィンガープリント**: アプリの署名証明書のSHA-1を入力
+   - クライアントIDをコピー
+
+2. **iOS用OAuthクライアントID**:
+   - 「認証情報を作成」→「OAuth 2.0 クライアント ID」
+   - **アプリケーションの種類**: 「iOS」を選択
+   - **名前**: 任意（例: "Morizo Mobile iOS"）
+   - **Bundle ID**: iOSアプリのBundle ID（例: `com.morizo.app`）
+   - クライアントIDをコピー
+
+**Supabaseでの設定**:
+- **注意**: SupabaseのGoogleプロバイダー設定では1つのクライアントIDしか登録できないため、Webアプリケーション用のクライアントIDを優先的に使用します
+- モバイルアプリ用のクライアントIDは、モバイルアプリ側で直接使用する必要がある場合があります
+
+**実装上の考慮事項**:
+- Expo/React Nativeを使用している場合、`@supabase/supabase-js`と`expo-auth-session`などのライブラリを使用
+- プラットフォーム固有のクライアントIDを使用する場合は、モバイルアプリ側で直接OAuthフローを実装する必要がある場合があります
+
+**推奨**: まずは**方法1**（同じWebアプリケーション用クライアントIDを使用）を試してください。SupabaseのモバイルSDKが適切にリダイレクトURIを処理するため、多くの場合そのまま動作します。
+
+##### **トラブルシューティング**
+
+- **エラー: redirect_uri_mismatch**: Google Cloud ConsoleのリダイレクトURI設定を確認
+- **エラー: invalid_client**: クライアントIDとシークレットが正しいか確認
+- **同意画面エラー**: Google Cloud Consoleの同意画面設定が完了しているか確認
+- **モバイルで認証できない**: Webアプリケーション用のクライアントIDをそのまま使用できるか確認。できない場合は、プラットフォーム別のクライアントID作成を検討
 
 ## 4. 開発サーバーの起動
 
