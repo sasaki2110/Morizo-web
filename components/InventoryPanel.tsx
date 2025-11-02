@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { authenticatedFetch } from '@/lib/auth';
+import InventoryEditModal from '@/components/InventoryEditModal';
 
 interface InventoryItem {
   id: string;
@@ -26,6 +27,9 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ isOpen, onClose }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<string>('created_at');
   const [sortOrder, setSortOrder] = useState<string>('desc');
+  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -72,6 +76,53 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ isOpen, onClose }) => {
   const storageLocations = Array.from(new Set(
     inventory.map(item => item.storage_location).filter(Boolean) as string[]
   ));
+
+  const handleAddNew = () => {
+    setEditingItem(null);
+    setIsEditModalOpen(true);
+  };
+
+  const handleEdit = (item: InventoryItem) => {
+    setEditingItem(item);
+    setIsEditModalOpen(true);
+  };
+
+  const handleDelete = async (itemId: string, itemName: string) => {
+    if (!confirm(`「${itemName}」を削除しますか？`)) {
+      return;
+    }
+    
+    setIsDeleting(itemId);
+    try {
+      const response = await authenticatedFetch(`/api/inventory/delete/${itemId}`, {
+        method: 'DELETE',
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      if (result.success) {
+        await loadInventory(); // 一覧を再読み込み
+      }
+    } catch (error) {
+      console.error('Inventory delete failed:', error);
+      alert('削除に失敗しました');
+    } finally {
+      setIsDeleting(null);
+    }
+  };
+
+  const handleEditModalClose = () => {
+    setIsEditModalOpen(false);
+    setEditingItem(null);
+  };
+
+  const handleEditModalSave = async () => {
+    await loadInventory(); // 一覧を再読み込み
+    handleEditModalClose();
+  };
 
   if (!isOpen) return null;
 
@@ -176,6 +227,7 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ isOpen, onClose }) => {
                   <th className="text-left py-2 text-gray-600 dark:text-gray-400">単位</th>
                   <th className="text-left py-2 text-gray-600 dark:text-gray-400">場所</th>
                   <th className="text-left py-2 text-gray-600 dark:text-gray-400">登録日</th>
+                  <th className="text-center py-2 text-gray-600 dark:text-gray-400">操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -186,13 +238,50 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ isOpen, onClose }) => {
                     <td className="py-2 text-gray-600 dark:text-gray-400">{item.unit}</td>
                     <td className="py-2 text-gray-600 dark:text-gray-400">{item.storage_location || '-'}</td>
                     <td className="py-2 text-gray-600 dark:text-gray-400">{formatDate(item.created_at)}</td>
+                    <td className="py-2">
+                      <div className="flex gap-2 justify-center">
+                        <button
+                          onClick={() => handleEdit(item)}
+                          className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs"
+                        >
+                          編集
+                        </button>
+                        <button
+                          onClick={() => handleDelete(item.id, item.item_name)}
+                          disabled={isDeleting === item.id}
+                          className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs disabled:opacity-50"
+                        >
+                          {isDeleting === item.id ? '削除中...' : '削除'}
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         )}
+        
+        {/* 新規追加ボタン */}
+        <div className="mt-4">
+          <button
+            onClick={handleAddNew}
+            className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+          >
+            + 新規追加
+          </button>
+        </div>
       </div>
+      
+      {/* 編集モーダル */}
+      {isEditModalOpen && (
+        <InventoryEditModal
+          isOpen={isEditModalOpen}
+          onClose={handleEditModalClose}
+          item={editingItem}
+          onSave={handleEditModalSave}
+        />
+      )}
     </div>
   );
 };
