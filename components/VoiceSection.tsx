@@ -1,36 +1,71 @@
 'use client';
 
+import { useState } from 'react';
 import VoiceRecorder from '@/components/VoiceRecorder';
 import { authenticatedFetch } from '@/lib/auth';
 import { generateSSESessionId } from '@/lib/session-manager';
 import { ChatMessage } from '@/types/chat';
+import StreamingProgress from '@/components/streaming/StreamingProgress';
+import { useSSEHandling } from '@/hooks/useSSEHandling';
 
 interface VoiceSectionProps {
   isChatLoading: boolean;
   setIsChatLoading: React.Dispatch<React.SetStateAction<boolean>>;
+  chatMessages: ChatMessage[];
   setChatMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
 }
 
 export default function VoiceSection({
   isChatLoading,
   setIsChatLoading,
+  chatMessages,
   setChatMessages
 }: VoiceSectionProps) {
+  // 確認状態管理
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState<boolean>(false);
+  const [confirmationSessionId, setConfirmationSessionId] = useState<string | null>(null);
+
+  // SSE処理フック
+  const {
+    createOnCompleteHandler,
+    createOnErrorHandler,
+    createOnTimeoutHandler,
+    createOnProgressHandler,
+  } = useSSEHandling(
+    chatMessages,
+    setChatMessages,
+    setIsChatLoading,
+    setAwaitingConfirmation,
+    setConfirmationSessionId,
+    () => {}, // setAwaitingSelectionは音声入力では未使用
+    null // chatEndRefは音声入力では未使用
+  );
+
   const handleVoiceTranscription = async (text: string) => {
     setIsChatLoading(true);
     
     // ユーザーメッセージを追加
     setChatMessages(prev => [...prev, { type: 'user', content: text }]);
     
-    // SSEセッションIDを生成
-    const sseSessionId = generateSSESessionId();
+    // SSEセッションIDの決定と確認応答フラグを設定
+    let sseSessionId: string;
+    const isConfirmationRequest = awaitingConfirmation && !!confirmationSessionId;
+
+    if (isConfirmationRequest) {
+      // 曖昧性確認中の場合は既存のセッションIDを使用
+      sseSessionId = confirmationSessionId;
+    } else {
+      // 新規リクエストの場合は新しいセッションIDを生成
+      sseSessionId = generateSSESessionId();
+    }
     
     // ストリーミング進捗表示を追加
-    setChatMessages(prev => [...prev, { 
+    const streamingMessage: ChatMessage = { 
       type: 'streaming', 
       content: '', 
       sseSessionId: sseSessionId 
-    }]);
+    };
+    setChatMessages(prev => [...prev, streamingMessage]);
     
     try {
       const response = await authenticatedFetch('/api/chat', {
@@ -40,7 +75,8 @@ export default function VoiceSection({
         },
         body: JSON.stringify({ 
           message: text,
-          sse_session_id: sseSessionId 
+          sse_session_id: sseSessionId,
+          confirm: isConfirmationRequest
         }),
       });
 
@@ -50,10 +86,34 @@ export default function VoiceSection({
 
       const data = await response.json();
       
+      // HTTPレスポンスから確認情報を取得して状態を更新
+      if (data.requires_confirmation && data.confirmation_session_id) {
+        setAwaitingConfirmation(true);
+        setConfirmationSessionId(data.confirmation_session_id);
+      } else if (isConfirmationRequest && data.success && !data.requires_confirmation) {
+        // 確認応答が完了した場合は状態をリセット
+        setAwaitingConfirmation(false);
+        setConfirmationSessionId(null);
+      }
+      
       // ストリーミング進捗表示をAIレスポンスに置き換え
+      // 選択要求がある場合は、選択関連情報も含める
       setChatMessages(prev => prev.map((msg, index) => 
         msg.type === 'streaming' && msg.sseSessionId === sseSessionId
-          ? { type: 'ai', content: data.response, result: data }
+          ? { 
+              type: 'ai', 
+              content: data.response, 
+              result: data,
+              requiresConfirmation: data.requires_confirmation,
+              // 選択関連情報を追加
+              requiresSelection: data.requires_selection || false,
+              candidates: data.candidates || undefined,
+              taskId: data.task_id || undefined,
+              currentStage: data.current_stage || undefined,
+              usedIngredients: data.used_ingredients || undefined,
+              menuCategory: data.menu_category || undefined,
+              sseSessionId: sseSessionId
+            }
           : msg
       ));
     } catch (error) {
@@ -63,6 +123,10 @@ export default function VoiceSection({
           ? { type: 'ai', content: `エラー: ${error instanceof Error ? error.message : '不明なエラー'}` }
           : msg
       ));
+      
+      // エラー時は確認状態をリセット
+      setAwaitingConfirmation(false);
+      setConfirmationSessionId(null);
     } finally {
       setIsChatLoading(false);
     }
@@ -91,6 +155,21 @@ export default function VoiceSection({
           Morizo AIが応答を生成中...
         </div>
       )}
+
+      {/* SSEストリーミング進捗表示 */}
+      {chatMessages
+        .filter(msg => msg.type === 'streaming' && msg.sseSessionId)
+        .map((msg, index) => (
+          <div key={`streaming-${msg.sseSessionId}-${index}`} className="mt-4">
+            <StreamingProgress
+              sseSessionId={msg.sseSessionId!}
+              onComplete={createOnCompleteHandler(msg)}
+              onError={createOnErrorHandler(msg)}
+              onTimeout={createOnTimeoutHandler(msg)}
+              onProgress={createOnProgressHandler()}
+            />
+          </div>
+        ))}
     </div>
   );
 }

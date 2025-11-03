@@ -5,8 +5,6 @@ import ChatMessageList from '@/components/ChatMessageList';
 import ChatInput from '@/components/ChatInput';
 import RecipeDetailModal from '@/components/RecipeDetailModal';
 import RecipeListModal from '@/components/RecipeListModal';
-import HistoryPanel from '@/components/HistoryPanel';
-import InventoryPanel from '@/components/InventoryPanel';
 import { ChatSectionProps } from '@/types/chat';
 import { useModalManagement } from '@/hooks/useModalManagement';
 import { useRecipeSelection } from '@/hooks/useRecipeSelection';
@@ -18,12 +16,16 @@ export default function ChatSection({
   setChatMessages,
   isTextChatLoading,
   setIsTextChatLoading,
-  openRecipeModal
+  openRecipeModal,
+  isHistoryPanelOpen,
+  closeHistoryPanel,
+  isInventoryPanelOpen,
+  closeInventoryPanel,
 }: ChatSectionProps) {
   const [awaitingSelection, setAwaitingSelection] = useState<boolean>(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // モーダル管理フック
+  // モーダル管理フック（履歴パネルと在庫パネルは親から受け取る）
   const {
     isDetailModalOpen,
     selectedRecipe,
@@ -33,12 +35,6 @@ export default function ChatSection({
     listModalCandidates,
     handleViewList,
     closeListModal,
-    isHistoryPanelOpen,
-    openHistoryPanel,
-    closeHistoryPanel,
-    isInventoryPanelOpen,
-    openInventoryPanel,
-    closeInventoryPanel,
   } = useModalManagement();
 
   // レシピ選択管理フック
@@ -119,8 +115,6 @@ export default function ChatSection({
         onKeyPress={handleKeyPress}
         isTextChatLoading={isTextChatLoading}
         awaitingSelection={awaitingSelection}
-        onOpenHistory={openHistoryPanel}
-        onOpenInventory={openInventoryPanel}
       />
       
       {/* レシピ詳細モーダル */}
@@ -141,17 +135,6 @@ export default function ChatSection({
         />
       )}
       
-      {/* Phase 5C-3: 履歴パネル */}
-      <HistoryPanel
-        isOpen={isHistoryPanelOpen}
-        onClose={closeHistoryPanel}
-      />
-      
-      {/* Phase 1-2: 在庫パネル */}
-      <InventoryPanel
-        isOpen={isInventoryPanelOpen}
-        onClose={closeInventoryPanel}
-      />
     </>
   );
 }

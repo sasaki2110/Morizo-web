@@ -32,5 +32,9 @@ export interface ChatSectionProps {
   isTextChatLoading: boolean;
   setIsTextChatLoading: React.Dispatch<React.SetStateAction<boolean>>;
   openRecipeModal: (response: string, result?: unknown) => void;
+  isHistoryPanelOpen: boolean;
+  closeHistoryPanel: () => void;
+  isInventoryPanelOpen: boolean;
+  closeInventoryPanel: () => void;
 }
 
