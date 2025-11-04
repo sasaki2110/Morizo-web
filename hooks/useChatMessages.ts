@@ -15,6 +15,7 @@ export function useChatMessages(
   const [textMessage, setTextMessage] = useState<string>('');
   const [awaitingConfirmation, setAwaitingConfirmation] = useState<boolean>(false);
   const [confirmationSessionId, setConfirmationSessionId] = useState<string | null>(null);
+  const [helpSessionId, setHelpSessionId] = useState<string | null>(null);
 
   const sendTextMessage = async () => {
     if (!textMessage.trim()) return;
@@ -33,15 +34,31 @@ export function useChatMessages(
     // SSEセッションIDの決定と送信時の確認応答フラグを記録
     let sseSessionId: string;
     const isConfirmationRequest = awaitingConfirmation && !!confirmationSessionId;
+    
+    // ヘルプモード判定: 数字入力（1-4）またはヘルプキーワードの場合
+    const isHelpKeyword = /^(使い方を教えて|使い方を知りたい|使い方を説明して|ヘルプ|help)$/i.test(currentMessage.trim());
+    const isHelpNumber = /^[1-4]$/.test(currentMessage.trim());
+    const isHelpModeInput = isHelpKeyword || isHelpNumber;
+    const isInHelpMode = !!helpSessionId && (isHelpNumber || isHelpKeyword);
 
     if (isConfirmationRequest) {
       // 曖昧性確認中の場合は既存のセッションIDを使用
       sseSessionId = confirmationSessionId;
-      console.log('[DEBUG] Using existing session ID:', sseSessionId);
+      console.log('[DEBUG] Using existing session ID (confirmation):', sseSessionId);
+    } else if (isInHelpMode) {
+      // ヘルプモード中の場合は既存のヘルプセッションIDを使用
+      sseSessionId = helpSessionId;
+      console.log('[DEBUG] Using existing session ID (help mode):', sseSessionId);
     } else {
       // 新規リクエストの場合は新しいセッションIDを生成
       sseSessionId = generateSSESessionId();
       console.log('[DEBUG] Generated new session ID:', sseSessionId);
+      
+      // 通常のチャット入力（数字でもヘルプキーワードでもない）の場合はヘルプモードを終了
+      if (helpSessionId && !isHelpModeInput) {
+        console.log('[DEBUG] Exiting help mode (normal chat input)');
+        setHelpSessionId(null);
+      }
     }
     
     console.log('[DEBUG] Sending request with:', {
@@ -78,10 +95,43 @@ export function useChatMessages(
 
       const data = await response.json();
       
-      console.log('[DEBUG] HTTP Response received (for reference only):', {
+      console.log('[DEBUG] HTTP Response received:', {
         success: data.success,
-        has_response: !!data.response
+        has_response: !!data.response,
+        response_preview: data.response?.substring(0, 100)
       });
+      
+      // ヘルプ応答の検知: ヘルプ全体概要または機能別詳細の応答かどうか
+      const isHelpResponse = data.response && (
+        data.response.includes('4つの便利な機能') ||
+        data.response.includes('どの機能について知りたいですか') ||
+        data.response.includes('食材を追加する') ||
+        data.response.includes('食材を削除する') ||
+        data.response.includes('主菜を選ぶ') ||
+        data.response.includes('副菜を選ぶ') ||
+        data.response.includes('汁物を選ぶ') ||
+        data.response.includes('在庫一覧を確認する') ||
+        data.response.includes('レシピ履歴を確認する')
+      );
+      
+      // ヘルプ応答の場合は、SSEを待たずにHTTPレスポンスから直接処理
+      if (isHelpResponse && data.success && data.response) {
+        console.log('[DEBUG] Help response detected in HTTP response, processing directly');
+        
+        // ヘルプセッションIDを設定
+        setHelpSessionId(sseSessionId);
+        
+        // streamingメッセージをAIレスポンスに置き換え
+        setChatMessages(prev => prev.map((msg, index): ChatMessage => 
+          msg.type === 'streaming' && msg.sseSessionId === sseSessionId
+            ? { type: 'ai' as const, content: data.response }
+            : msg
+        ));
+        
+        // ローディング状態を終了
+        setIsTextChatLoading(false);
+        return; // ヘルプ応答の場合はここで処理終了
+      }
       
       // 注意: 曖昧性確認の状態更新はSSEのStreamingProgressで処理されます
       // HTTPレスポンスでは状態を更新しません（SSEが優先）
@@ -115,6 +165,7 @@ export function useChatMessages(
     setChatMessages([]);
     setAwaitingConfirmation(false);
     setConfirmationSessionId(null);
+    setHelpSessionId(null);
     setAwaitingSelection(false);
     // Phase 5B-3: 選択済みレシピもクリア
     clearSelectedRecipes();
@@ -134,6 +185,8 @@ export function useChatMessages(
     setAwaitingConfirmation,
     confirmationSessionId,
     setConfirmationSessionId,
+    helpSessionId,
+    setHelpSessionId,
     sendTextMessage,
     clearChatHistory,
     handleKeyPress,

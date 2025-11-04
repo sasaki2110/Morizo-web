@@ -55,6 +55,8 @@ export default function ChatSection({
     setAwaitingConfirmation,
     confirmationSessionId,
     setConfirmationSessionId,
+    helpSessionId,
+    setHelpSessionId,
     sendTextMessage,
     clearChatHistory,
     handleKeyPress,
@@ -75,7 +77,8 @@ export default function ChatSection({
     setAwaitingConfirmation,
     setConfirmationSessionId,
     setAwaitingSelection,
-    chatEndRef
+    chatEndRef,
+    setHelpSessionId
   );
 
   // チャット履歴クリア処理（フックを統合）

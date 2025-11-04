@@ -36,7 +36,7 @@ export default function ChatInput({
             value={textMessage}
             onChange={(e) => setTextMessage(e.target.value)}
             onKeyPress={onKeyPress}
-            placeholder="メッセージを入力してください..."
+            placeholder="メッセージを入力してください...または 使い方を教えて..."
             className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
             disabled={isTextChatLoading || awaitingSelection}
           />
