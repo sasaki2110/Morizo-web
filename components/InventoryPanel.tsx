@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { authenticatedFetch } from '@/lib/auth';
 import InventoryEditModal from '@/components/InventoryEditModal';
+import InventoryCSVUploadModal from '@/components/InventoryCSVUploadModal';
 
 interface InventoryItem {
   id: string;
@@ -29,6 +30,7 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ isOpen, onClose }) => {
   const [sortOrder, setSortOrder] = useState<string>('desc');
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isCSVUploadModalOpen, setIsCSVUploadModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   useEffect(() => {
@@ -263,12 +265,18 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ isOpen, onClose }) => {
         )}
         
         {/* 新規追加ボタン */}
-        <div className="mt-4">
+        <div className="mt-4 space-y-2">
           <button
             onClick={handleAddNew}
             className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
           >
             + 新規追加
+          </button>
+          <button
+            onClick={() => setIsCSVUploadModalOpen(true)}
+            className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+          >
+            📄 CSVアップロード
           </button>
         </div>
       </div>
@@ -280,6 +288,15 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ isOpen, onClose }) => {
           onClose={handleEditModalClose}
           item={editingItem}
           onSave={handleEditModalSave}
+        />
+      )}
+      
+      {/* CSVアップロードモーダル */}
+      {isCSVUploadModalOpen && (
+        <InventoryCSVUploadModal
+          isOpen={isCSVUploadModalOpen}
+          onClose={() => setIsCSVUploadModalOpen(false)}
+          onUploadComplete={loadInventory}
         />
       )}
     </div>
