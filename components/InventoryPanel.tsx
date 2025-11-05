@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { authenticatedFetch } from '@/lib/auth';
 import InventoryEditModal from '@/components/InventoryEditModal';
 import InventoryCSVUploadModal from '@/components/InventoryCSVUploadModal';
+import InventoryOCRModal from '@/components/InventoryOCRModal';
 
 interface InventoryItem {
   id: string;
@@ -31,6 +32,7 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ isOpen, onClose }) => {
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCSVUploadModalOpen, setIsCSVUploadModalOpen] = useState(false);
+  const [isOCRModalOpen, setIsOCRModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   useEffect(() => {
@@ -278,6 +280,12 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ isOpen, onClose }) => {
           >
             📄 CSVアップロード
           </button>
+          <button
+            onClick={() => setIsOCRModalOpen(true)}
+            className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+          >
+            📷 レシートOCR
+          </button>
         </div>
       </div>
       
@@ -296,6 +304,15 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ isOpen, onClose }) => {
         <InventoryCSVUploadModal
           isOpen={isCSVUploadModalOpen}
           onClose={() => setIsCSVUploadModalOpen(false)}
+          onUploadComplete={loadInventory}
+        />
+      )}
+      
+      {/* レシートOCRモーダル */}
+      {isOCRModalOpen && (
+        <InventoryOCRModal
+          isOpen={isOCRModalOpen}
+          onClose={() => setIsOCRModalOpen(false)}
           onUploadComplete={loadInventory}
         />
       )}
