@@ -7,6 +7,7 @@ import { generateSSESessionId } from '@/lib/session-manager';
 import { ChatMessage } from '@/types/chat';
 import StreamingProgress from '@/components/streaming/StreamingProgress';
 import { useSSEHandling } from '@/hooks/useSSEHandling';
+import { applyTextReplacement } from '@/lib/voice-text-replacement';
 
 interface VoiceSectionProps {
   isChatLoading: boolean;
@@ -44,8 +45,11 @@ export default function VoiceSection({
   const handleVoiceTranscription = async (text: string) => {
     setIsChatLoading(true);
     
-    // ユーザーメッセージを追加
-    setChatMessages(prev => [...prev, { type: 'user', content: text }]);
+    // 音声認識テキストに置換ルールを適用
+    const replacedText = applyTextReplacement(text);
+    
+    // ユーザーメッセージを追加（置換後のテキストを使用）
+    setChatMessages(prev => [...prev, { type: 'user', content: replacedText }]);
     
     // SSEセッションIDの決定と確認応答フラグを設定
     let sseSessionId: string;
@@ -74,7 +78,7 @@ export default function VoiceSection({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ 
-          message: text,
+          message: replacedText,
           sse_session_id: sseSessionId,
           confirm: isConfirmationRequest
         }),
