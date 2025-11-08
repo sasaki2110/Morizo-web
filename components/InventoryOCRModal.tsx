@@ -2,6 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import { authenticatedFetch } from '@/lib/auth';
+import ImageSelector from './ocr/ImageSelector';
 
 interface OCRItem {
   item_name: string;
@@ -211,24 +212,12 @@ const InventoryOCRModal: React.FC<InventoryOCRModalProps> = ({
           {/* ステップ1: 画像選択 */}
           {!ocrResult && (
             <>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  レシート画像を選択
-                </label>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/jpeg,image/jpg,image/png"
-                  onChange={handleFileSelect}
-                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"
-                  disabled={isAnalyzing}
-                />
-                {file && (
-                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                    選択中のファイル: {file.name} ({(file.size / 1024).toFixed(2)} KB)
-                  </p>
-                )}
-              </div>
+              <ImageSelector
+                file={file}
+                onSelect={handleFileSelect}
+                disabled={isAnalyzing}
+                fileInputRef={fileInputRef}
+              />
 
               {/* 画像プレビュー */}
               {previewUrl && (
