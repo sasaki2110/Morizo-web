@@ -6,7 +6,7 @@ interface ImageSelectorProps {
   file: File | null;
   onSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
   disabled?: boolean;
-  fileInputRef: React.RefObject<HTMLInputElement>;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
 }
 
 /**

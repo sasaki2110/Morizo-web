@@ -14,7 +14,7 @@ export function useSSEHandling(
   setAwaitingConfirmation: React.Dispatch<React.SetStateAction<boolean>>,
   setConfirmationSessionId: React.Dispatch<React.SetStateAction<string | null>>,
   setAwaitingSelection: React.Dispatch<React.SetStateAction<boolean>>,
-  chatEndRef: React.RefObject<HTMLDivElement | null>,
+  chatEndRef?: React.RefObject<HTMLDivElement | null>,
   setHelpSessionId?: React.Dispatch<React.SetStateAction<string | null>>
 ) {
   const handleRequestMore = (sseSessionId: string) => {
@@ -366,7 +366,7 @@ export function useSSEHandling(
   const createOnProgressHandler = () => {
     return () => {
       // 進捗更新時に自動スクロールを実行
-      chatEndRef.current?.scrollIntoView({ 
+      chatEndRef?.current?.scrollIntoView({ 
         behavior: 'smooth', 
         block: 'end',
         inline: 'nearest' 

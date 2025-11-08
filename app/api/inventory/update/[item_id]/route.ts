@@ -21,12 +21,12 @@ export async function OPTIONS() {
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { item_id: string } }
+  { params }: { params: Promise<{ item_id: string }> }
 ) {
   const timer = ServerLogger.startTimer('inventory-update-api');
   
   try {
-    const itemId = params.item_id;
+    const { item_id: itemId } = await params;
     ServerLogger.info(LogCategory.API, '在庫更新API呼び出し開始', { itemId });
 
     // リクエストボディの取得
@@ -87,8 +87,9 @@ export async function PUT(
 
   } catch (error) {
     timer();
+    const { item_id: itemId } = await params;
     logError(LogCategory.API, error, 'inventory-update-api');
-    logApiCall('PUT', `/api/inventory/update/${params.item_id}`, 500, undefined, error instanceof Error ? error.message : '不明なエラー');
+    logApiCall('PUT', `/api/inventory/update/${itemId}`, 500, undefined, error instanceof Error ? error.message : '不明なエラー');
     
     const errorResponse = NextResponse.json(
       { 

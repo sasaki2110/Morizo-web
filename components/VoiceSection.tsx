@@ -39,7 +39,7 @@ export default function VoiceSection({
     setAwaitingConfirmation,
     setConfirmationSessionId,
     () => {}, // setAwaitingSelectionは音声入力では未使用
-    null // chatEndRefは音声入力では未使用
+    undefined // chatEndRefは音声入力では未使用
   );
 
   const handleVoiceTranscription = async (text: string) => {
