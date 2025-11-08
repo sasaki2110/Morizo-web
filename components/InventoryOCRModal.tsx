@@ -1,23 +1,11 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
-import { authenticatedFetch } from '@/lib/auth';
+import React from 'react';
+import { useImagePicker } from '@/hooks/useImagePicker';
+import { useOCRAnalysis, type OCRItem, type OCRResult } from '@/hooks/useOCRAnalysis';
+import { useItemSelection } from '@/hooks/useItemSelection';
+import { useItemRegistration } from '@/hooks/useItemRegistration';
 import ImageSelector from './ocr/ImageSelector';
-
-interface OCRItem {
-  item_name: string;
-  quantity: number;
-  unit: string;
-  storage_location: string | null;
-  expiry_date: string | null;
-}
-
-interface OCRResult {
-  success: boolean;
-  items: OCRItem[];
-  registered_count: number;
-  errors: string[];
-}
 
 interface InventoryOCRModalProps {
   isOpen: boolean;
@@ -30,100 +18,40 @@ const InventoryOCRModal: React.FC<InventoryOCRModalProps> = ({
   onClose,
   onUploadComplete,
 }) => {
-  const [file, setFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [ocrResult, setOcrResult] = useState<OCRResult | null>(null);
-  const [editableItems, setEditableItems] = useState<OCRItem[]>([]);
-  const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
-  const [isRegistering, setIsRegistering] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { file, previewUrl, fileInputRef, selectImage, clearImage } = useImagePicker();
+  const {
+    isAnalyzing,
+    ocrResult,
+    editableItems,
+    setEditableItems,
+    analyzeImage,
+    handleItemEdit,
+    clearOCRResult,
+  } = useOCRAnalysis();
+  const { selectedItems, toggleItem, selectAll, clearSelection } = useItemSelection(editableItems);
+  const { isRegistering, registerItems } = useItemRegistration(onUploadComplete);
 
   const units = ['個', 'kg', 'g', 'L', 'ml', '本', 'パック', '袋'];
   const storageLocations = ['冷蔵庫', '冷凍庫', '常温倉庫', '野菜室', 'その他'];
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      // ファイル形式チェック
-      const validTypes = ['image/jpeg', 'image/jpg', 'image/png'];
-      if (!validTypes.includes(selectedFile.type)) {
-        alert('JPEGまたはPNGファイルのみアップロード可能です');
-        return;
-      }
-      
-      // ファイルサイズチェック（10MB）
-      if (selectedFile.size > 10 * 1024 * 1024) {
-        alert('ファイルサイズは10MB以下にしてください');
-        return;
-      }
-      
-      setFile(selectedFile);
-      
-      // プレビューURL作成
-      const url = URL.createObjectURL(selectedFile);
-      setPreviewUrl(url);
-      setOcrResult(null);
-      setEditableItems([]);
-      setSelectedItems(new Set());
-    }
+    selectImage(e);
+    // 画像選択時にOCR結果をクリア
+    clearOCRResult();
+    clearSelection();
   };
 
   const handleAnalyze = async () => {
-    if (!file) {
-      alert('画像ファイルを選択してください');
-      return;
-    }
-
-    setIsAnalyzing(true);
-    setOcrResult(null);
-
-    try {
-      const formData = new FormData();
-      formData.append('image', file);
-
-      const response = await authenticatedFetch('/api/inventory/ocr-receipt', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
-      }
-
-      const result: OCRResult = await response.json();
-      setOcrResult(result);
-      
-      // 編集可能なアイテムリストを作成
-      if (result.items && result.items.length > 0) {
-        setEditableItems([...result.items]);
-        // すべてのアイテムを選択状態にする
-        setSelectedItems(new Set(result.items.map((_, idx) => idx)));
-      }
-    } catch (error) {
-      console.error('OCR analysis failed:', error);
-      alert(error instanceof Error ? error.message : 'OCR解析に失敗しました');
-    } finally {
-      setIsAnalyzing(false);
-    }
+    if (!file) return;
+    await analyzeImage(file);
   };
 
-  const handleItemEdit = (index: number, field: keyof OCRItem, value: string | number | null) => {
-    const updated = [...editableItems];
-    updated[index] = { ...updated[index], [field]: value };
-    setEditableItems(updated);
-  };
-
-  const handleItemToggle = (index: number) => {
-    const newSelected = new Set(selectedItems);
-    if (newSelected.has(index)) {
-      newSelected.delete(index);
-    } else {
-      newSelected.add(index);
+  // OCR解析成功後、すべてのアイテムを選択状態にする
+  React.useEffect(() => {
+    if (ocrResult?.items && ocrResult.items.length > 0 && editableItems.length > 0) {
+      selectAll();
     }
-    setSelectedItems(newSelected);
-  };
+  }, [ocrResult, editableItems, selectAll]);
 
   const handleRegister = async () => {
     if (selectedItems.size === 0) {
@@ -131,63 +59,15 @@ const InventoryOCRModal: React.FC<InventoryOCRModalProps> = ({
       return;
     }
 
-    setIsRegistering(true);
-
-    try {
-      // 選択されたアイテムのみを登録
-      const itemsToRegister = Array.from(selectedItems).map(idx => editableItems[idx]);
-      
-      // 個別登録APIを呼び出す
-      let successCount = 0;
-      const errors: string[] = [];
-
-      for (const item of itemsToRegister) {
-        try {
-          const response = await authenticatedFetch('/api/inventory/add', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(item),
-          });
-
-          if (response.ok) {
-            successCount++;
-          } else {
-            const errorData = await response.json();
-            errors.push(`${item.item_name}: ${errorData.detail || '登録失敗'}`);
-          }
-        } catch (error) {
-          errors.push(`${item.item_name}: ${error instanceof Error ? error.message : '登録失敗'}`);
-        }
-      }
-
-      if (successCount > 0) {
-        alert(`${successCount}件のアイテムを登録しました${errors.length > 0 ? `\nエラー: ${errors.length}件` : ''}`);
-        onUploadComplete();
-      } else {
-        alert(`登録に失敗しました: ${errors.join(', ')}`);
-      }
-    } catch (error) {
-      console.error('Registration failed:', error);
-      alert('登録に失敗しました');
-    } finally {
-      setIsRegistering(false);
-    }
+    // 選択されたアイテムのみを登録
+    const itemsToRegister = Array.from(selectedItems).map(idx => editableItems[idx]);
+    await registerItems(itemsToRegister);
   };
 
   const handleClose = () => {
-    setFile(null);
-    setPreviewUrl(null);
-    setOcrResult(null);
-    setEditableItems([]);
-    setSelectedItems(new Set());
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-    }
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    clearImage();
+    clearOCRResult();
+    clearSelection();
     onClose();
   };
 
@@ -292,12 +172,12 @@ const InventoryOCRModal: React.FC<InventoryOCRModalProps> = ({
                         <th className="text-left py-2 text-gray-600 dark:text-gray-400 w-8">
                           <input
                             type="checkbox"
-                            checked={selectedItems.size === editableItems.length}
+                            checked={selectedItems.size === editableItems.length && editableItems.length > 0}
                             onChange={(e) => {
                               if (e.target.checked) {
-                                setSelectedItems(new Set(editableItems.map((_, idx) => idx)));
+                                selectAll();
                               } else {
-                                setSelectedItems(new Set());
+                                clearSelection();
                               }
                             }}
                           />
@@ -316,7 +196,7 @@ const InventoryOCRModal: React.FC<InventoryOCRModalProps> = ({
                             <input
                               type="checkbox"
                               checked={selectedItems.has(index)}
-                              onChange={() => handleItemToggle(index)}
+                              onChange={() => toggleItem(index)}
                             />
                           </td>
                           <td className="py-2">
