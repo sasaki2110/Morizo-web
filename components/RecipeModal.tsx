@@ -8,7 +8,7 @@
 import React, { useEffect, useState } from 'react';
 import { MenuViewer } from './MenuViewer';
 import { parseMenuResponseUnified } from '../lib/menu-parser';
-import { SelectedRecipes, RecipeCard, RecipeAdoptionItem, RecipeSelection } from '../types/menu';
+import { SelectedRecipes, RecipeCard, RecipeAdoptionItem, RecipeSelection, MenuResponse } from '../types/menu';
 import { adoptRecipes } from '../lib/recipe-api';
 
 interface RecipeModalProps {
@@ -83,14 +83,46 @@ export function RecipeModal({ isOpen, onClose, response, result, className = '' 
   const handleAdoptRecipes = async () => {
     const recipesToAdopt: RecipeAdoptionItem[] = [];
     
+    // resultからmenu_dataを取得
+    let menuData: MenuResponse | null = null;
+    if (result && typeof result === 'object' && 'menu_data' in result) {
+      menuData = (result as { menu_data?: MenuResponse }).menu_data || null;
+    }
+    
+    // カテゴリマッピング（main_dish → main, side_dish → side, soup → soup）
+    const categoryMap: Record<string, 'main' | 'side' | 'soup'> = {
+      'main_dish': 'main',
+      'side_dish': 'side',
+      'soup': 'soup'
+    };
+    
     // 選択されたレシピを配列に変換
     recipeSelections.forEach(selection => {
       const { recipe, category, section } = selection;
+      
+      // menu_dataからingredientsを取得
+      let ingredients: string[] | undefined = undefined;
+      if (menuData) {
+        const sectionData = menuData[section];
+        const categoryKey = categoryMap[category];
+        if (sectionData && sectionData.recipes[categoryKey]) {
+          // タイトルが一致するレシピを探す
+          const matchedRecipe = sectionData.recipes[categoryKey].find(
+            r => r.title === recipe.title
+          );
+          if (matchedRecipe && matchedRecipe.ingredients) {
+            ingredients = matchedRecipe.ingredients;
+            console.log(`[DEBUG] Found ingredients for '${recipe.title}':`, ingredients);
+          }
+        }
+      }
+      
       recipesToAdopt.push({
         title: recipe.title,
         category: category,
         menu_source: section === 'innovative' ? 'llm_menu' : 'rag_menu',
-        url: recipe.urls[0]?.url // 最初のURLを使用
+        url: recipe.urls[0]?.url, // 最初のURLを使用
+        ingredients: ingredients || recipe.ingredients // menu_dataから取得、なければrecipe.ingredientsを使用
       });
     });
 
@@ -287,14 +319,46 @@ export function RecipeModalMobile({ isOpen, onClose, response, result, className
   const handleAdoptRecipes = async () => {
     const recipesToAdopt: RecipeAdoptionItem[] = [];
     
+    // resultからmenu_dataを取得
+    let menuData: MenuResponse | null = null;
+    if (result && typeof result === 'object' && 'menu_data' in result) {
+      menuData = (result as { menu_data?: MenuResponse }).menu_data || null;
+    }
+    
+    // カテゴリマッピング（main_dish → main, side_dish → side, soup → soup）
+    const categoryMap: Record<string, 'main' | 'side' | 'soup'> = {
+      'main_dish': 'main',
+      'side_dish': 'side',
+      'soup': 'soup'
+    };
+    
     // 選択されたレシピを配列に変換
     recipeSelections.forEach(selection => {
       const { recipe, category, section } = selection;
+      
+      // menu_dataからingredientsを取得
+      let ingredients: string[] | undefined = undefined;
+      if (menuData) {
+        const sectionData = menuData[section];
+        const categoryKey = categoryMap[category];
+        if (sectionData && sectionData.recipes[categoryKey]) {
+          // タイトルが一致するレシピを探す
+          const matchedRecipe = sectionData.recipes[categoryKey].find(
+            r => r.title === recipe.title
+          );
+          if (matchedRecipe && matchedRecipe.ingredients) {
+            ingredients = matchedRecipe.ingredients;
+            console.log(`[DEBUG] Found ingredients for '${recipe.title}':`, ingredients);
+          }
+        }
+      }
+      
       recipesToAdopt.push({
         title: recipe.title,
         category: category,
         menu_source: section === 'innovative' ? 'llm_menu' : 'rag_menu',
-        url: recipe.urls[0]?.url // 最初のURLを使用
+        url: recipe.urls[0]?.url, // 最初のURLを使用
+        ingredients: ingredients || recipe.ingredients // menu_dataから取得、なければrecipe.ingredientsを使用
       });
     });
 

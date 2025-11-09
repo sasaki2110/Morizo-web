@@ -27,6 +27,8 @@ export interface RecipeCard {
   category: 'main' | 'side' | 'soup';
   /** 表示用の絵文字 */
   emoji: string;
+  /** 食材リスト（オプション） */
+  ingredients?: string[];
 }
 
 /**
@@ -160,6 +162,8 @@ export interface RecipeAdoptionItem {
   category: "main_dish" | "side_dish" | "soup";
   menu_source: "llm_menu" | "rag_menu" | "manual";
   url?: string;
+  /** 食材リスト（オプション） */
+  ingredients?: string[];
 }
 
 /**

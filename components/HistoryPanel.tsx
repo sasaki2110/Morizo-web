@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { authenticatedFetch } from '@/lib/auth';
+import IngredientDeleteModal from './IngredientDeleteModal';
 
 interface HistoryRecipe {
   category: string | null;
@@ -15,6 +16,7 @@ interface HistoryRecipe {
 interface HistoryEntry {
   date: string;
   recipes: HistoryRecipe[];
+  ingredients_deleted?: boolean; // 食材削除済みフラグ（オプショナル）
 }
 
 interface HistoryPanelProps {
@@ -27,6 +29,8 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({ isOpen, onClose }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [days, setDays] = useState(14);
   const [categoryFilter, setCategoryFilter] = useState<string>('');
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string>('');
 
   useEffect(() => {
     if (isOpen) {
@@ -67,6 +71,24 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({ isOpen, onClose }) => {
     if (category === 'sub') return '🥗';
     if (category === 'soup') return '🍲';
     return '🍽️';
+  };
+
+  const handleDeleteClick = (date: string) => {
+    setSelectedDate(date);
+    setDeleteModalOpen(true);
+  };
+
+  const handleDeleteComplete = () => {
+    // 削除完了後、該当日付のingredients_deletedフラグを更新
+    setHistory((prevHistory) =>
+      prevHistory.map((entry) =>
+        entry.date === selectedDate
+          ? { ...entry, ingredients_deleted: true }
+          : entry
+      )
+    );
+    // 履歴を再読み込み（オプション）
+    // loadHistory();
   };
 
   if (!isOpen) return null;
@@ -158,9 +180,23 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({ isOpen, onClose }) => {
           <div className="space-y-4">
             {history.map((entry, index) => (
               <div key={index} className="border-b border-gray-200 dark:border-gray-700 pb-4 last:border-b-0">
-                <h3 className="text-sm font-bold text-gray-600 dark:text-gray-400 mb-2">
-                  📆 {formatDate(entry.date)}
-                </h3>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-bold text-gray-600 dark:text-gray-400">
+                    📆 {formatDate(entry.date)}
+                  </h3>
+                  {entry.ingredients_deleted ? (
+                    <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                      削除済み
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => handleDeleteClick(entry.date)}
+                      className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
+                    >
+                      食材削除
+                    </button>
+                  )}
+                </div>
                 <div className="space-y-2">
                   {entry.recipes.map((recipe, recipeIndex) => (
                     <div
@@ -194,6 +230,14 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({ isOpen, onClose }) => {
           </div>
         )}
       </div>
+
+      {/* 食材削除モーダル */}
+      <IngredientDeleteModal
+        date={selectedDate}
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onDeleteComplete={handleDeleteComplete}
+      />
     </div>
   );
 };
