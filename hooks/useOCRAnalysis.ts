@@ -9,6 +9,7 @@ export interface OCRItem {
   unit: string;
   storage_location: string | null;
   expiry_date: string | null;
+  original_name?: string; // OCRで読み取られた元の名前（変換テーブル登録用）
 }
 
 export interface OCRResult {
@@ -106,7 +107,12 @@ export const useOCRAnalysis = () => {
       
       // 編集可能なアイテムリストを作成
       if (result.items && result.items.length > 0) {
-        setEditableItems([...result.items]);
+        // 各アイテムにoriginal_nameを設定（OCRで読み取られた元の名前を保持）
+        const itemsWithOriginalName = result.items.map(item => ({
+          ...item,
+          original_name: item.item_name, // 初期値をoriginal_nameとして保持
+        }));
+        setEditableItems(itemsWithOriginalName);
       } else {
         // アイテムが抽出されなかった場合
         alert('レシートからアイテムを抽出できませんでした。レシート画像が鮮明でないか、レシート以外の画像が選択されている可能性があります。');
@@ -136,12 +142,58 @@ export const useOCRAnalysis = () => {
     }
   }, []);
 
+  // 変換テーブル登録
+  const registerOCRMapping = useCallback(async (originalName: string, normalizedName: string) => {
+    try {
+      const response = await authenticatedFetch('/api/inventory/ocr-mapping', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          original_name: originalName,
+          normalized_name: normalizedName,
+        }),
+      });
+
+      if (!response.ok) {
+        // エラーが発生しても既存機能に影響しないため、警告ログのみ
+        const errorData = await response.json().catch(() => ({}));
+        console.warn('OCR変換テーブル登録に失敗しました:', errorData.detail || 'Unknown error');
+        return;
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        console.log(`OCR変換テーブルに登録しました: '${originalName}' -> '${normalizedName}'`);
+      }
+    } catch (error) {
+      // エラーが発生しても既存機能に影響しないため、警告ログのみ
+      console.warn('OCR変換テーブル登録中にエラーが発生しました:', error);
+    }
+  }, []);
+
   // アイテム編集
   const handleItemEdit = useCallback((index: number, field: keyof OCRItem, value: string | number | null) => {
     const updated = [...editableItems];
+    const previousItem = updated[index];
     updated[index] = { ...updated[index], [field]: value };
     setEditableItems(updated);
-  }, [editableItems]);
+
+    // item_nameが変更された場合、変換テーブルに登録
+    if (field === 'item_name' && typeof value === 'string') {
+      const originalName = previousItem.original_name || previousItem.item_name;
+      const normalizedName = value.trim();
+
+      // 元の名前と異なり、かつ空でない場合のみ登録
+      if (originalName && normalizedName && originalName !== normalizedName) {
+        // 非同期で変換テーブルに登録（エラーが発生しても既存機能に影響しない）
+        registerOCRMapping(originalName, normalizedName).catch((error) => {
+          console.warn('OCR変換テーブル登録中にエラーが発生しました:', error);
+        });
+      }
+    }
+  }, [editableItems, registerOCRMapping]);
 
   // OCR結果と編集可能アイテムをクリア
   const clearOCRResult = useCallback(() => {
